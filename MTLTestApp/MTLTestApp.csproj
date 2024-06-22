@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TDAP2\TDAP.csproj" />
+    <ProjectReference Include="..\GeometryLib\GeometryLib.csproj" />
   </ItemGroup>
 
 </Project>

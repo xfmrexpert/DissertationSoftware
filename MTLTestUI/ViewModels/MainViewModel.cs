@@ -5,6 +5,7 @@ using MathNet.Numerics.LinearAlgebra;
 using System;
 using System.Reflection;
 using System.Threading.Tasks;
+using TDAP;
 
 namespace MTLTestUI.ViewModels;
 
@@ -20,6 +21,8 @@ public partial class MainViewModel : ViewModelBase
     {
         _mainModel = new MainModel();
         Geometry = _mainModel.GenerateGeometry();
+        DxfFile dxfFile = new DxfFile();
+        dxfFile.CreateFromGeometry(Geometry);
         _mainModel.CalcMesh();
         _mainModel.CalcCapacitanceMatrix();
         int num_freqs = 10;

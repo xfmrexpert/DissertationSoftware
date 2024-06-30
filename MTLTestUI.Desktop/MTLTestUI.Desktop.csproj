@@ -17,4 +17,13 @@
   <ItemGroup>
     <ProjectReference Include="..\MTLTestUI\MTLTestUI.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="GetDP_Files\Lib_Electrostatics_v.pro">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="GetDP_Files\Lib_Materials.pro">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

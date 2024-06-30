@@ -1,5 +1,4 @@
-﻿using Avalonia.Controls.Shapes;
-using MathNet.Numerics.LinearAlgebra;
+﻿using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Data.Text;
 using System;
 using System.Collections.Generic;
@@ -12,12 +11,7 @@ using System.Threading.Tasks;
 using TDAP;
 using System.Collections.Concurrent;
 using System.Threading;
-using Newtonsoft.Json.Linq;
 using System.Data;
-using System.Xml.Linq;
-using System.Text.RegularExpressions;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-//using static System.Net.WebRequestMethods;
 
 namespace MTLTestUI
 {
@@ -32,8 +26,8 @@ namespace MTLTestUI
         double t_ins = in_to_m(0.018);
         double h_spacer = in_to_m(0.188);
         double r_cond_corner;
-        public int num_discs = 14;
-        public int turns_per_disc = 20;
+        public int num_discs = 3; //14;
+        public int turns_per_disc = 3; //20;
         double eps_oil = 1.0; //2.2;
         double eps_paper = 3.5; //2.8; //3.5;
 

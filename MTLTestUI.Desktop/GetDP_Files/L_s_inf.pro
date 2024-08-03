@@ -7,18 +7,18 @@ Freq = freq;
 
 Function {
   mu0 = 4.e-7 * Pi;
-  nu [ Region[{Air, TurnPos, TurnNeg, TurnZero}] ] = 1. / mu0;
-  mu [ Region[{Air, TurnPos, TurnNeg, TurnZero}] ] = mu0;
+  nu [ Region[{Air, TurnPos, TurnNeg, TurnZero, Surface_Inf}] ] = 1. / mu0;
+  mu [ Region[{Air, TurnPos, TurnNeg, TurnZero, Surface_Inf}] ] = mu0;
   Sc[Region[{TurnPos, TurnNeg, TurnZero}]] = SurfaceArea[] ; // area of coil cross section
   sigma[Region[{TurnPos, TurnNeg, TurnZero}]] = 5.80e7; //Conductivity of annealed copper
-  CoefGeos[Region[{Air, TurnPos, TurnNeg, TurnZero}]] = 2*Pi; // planar model, 1 meter thick
+  CoefGeos[Region[{Air, TurnPos, TurnNeg, TurnZero, Surface_Inf}]] = 2*Pi; // planar model, 1 meter thick
 }
 
 Constraint{
   { Name MagneticVectorPotential_2D;
     Case {
       { Region Axis; Value 0; }
-      { Region Surface_Inf; Value 0; }
+      //{ Region Surface_Inf; Value 0; }
     }
   }
 

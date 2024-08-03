@@ -12,7 +12,12 @@ DefineConstant[
   resPath = StrCat[modelPath, "res/"], // path for post-operation files
   CoefPower = 0.5, // coefficient for power calculations
   Freq = 60, // frequency (for harmonic simulations)
-  FE_Order = 1 // finite element order
+  FE_Order = 1 // finite element order,
+  Val_Rint = 0, // interior radius of annulus shell transformation region (Vol_Inf_Mag)
+  Val_Rext = 0, // exterior radius of annulus shell  transformation region (Vol_Inf_Mag)
+  Val_Cx = 0, // x-coordinate of center of Vol_Inf_Mag
+  Val_Cy = 0, // y-coordinate of center of Vol_Inf_Mag
+  Val_Cz = 0 // z-coordinate of center of Vol_Inf_Mag
 ];
 
 Group {
@@ -21,7 +26,8 @@ Group {
     Vol_Mag,
 
     // Subsets of Vol_Mag:
-    Vol_C_Mag // massive conductors
+    Vol_C_Mag, // massive conductors
+    Vol_Inf_Mag //outer infinite boundary domain
   ];
 }
 
@@ -44,6 +50,7 @@ Group{
 Jacobian {
   { Name Vol;
     Case {
+      { Region Vol_Inf_Mag; Jacobian VolAxiSquSphShell{Val_Rint, Val_Rext, Val_Cx, Val_Cy, Val_Cz}; }
       { Region All; Jacobian VolAxiSqu; }
     }
   }

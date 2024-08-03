@@ -26,14 +26,17 @@ namespace MTLTestUI
         double t_ins = in_to_m(0.018);
         double h_spacer = in_to_m(0.188);
         double r_cond_corner;
-        public int num_discs = 3; //14;
-        public int turns_per_disc = 3; //20;
-        double eps_oil = 1.0; //2.2;
-        double eps_paper = 3.5; //2.8; //3.5;
+        public int num_discs = 14;
+        public int turns_per_disc = 20;
+        public double eps_oil = 1.0; //2.2;
+        public double eps_paper = 2.8; //3.5;
+
+        public double bdry_radius = 1.0; //radius of outer boundary of finite element model
 
         int phyAir;
         int phyExtBdry;
         int phyAxis;
+        int phyInf;
         int[] phyTurnsCondBdry;
         int[] phyTurnsCond;
         int[] phyTurnsIns;
@@ -46,8 +49,6 @@ namespace MTLTestUI
         public Geometry GenerateGeometry()
         {
             bool include_ins = true;
-
-            double bdry_radius = 5; //radius of outer boundary of finite element model
 
             double z_offset = (num_discs * (h_cond + 2 * t_ins) + (num_discs - 1) * h_spacer + dist_wdg_tank_bottom + dist_wdg_tank_top) / 2;
 
@@ -71,16 +72,16 @@ namespace MTLTestUI
                 (double r, double z) = GetTurnMidpoint(i);
                 z = z - z_offset;
                 var conductor_bdry = geometry.AddRoundedRectangle(r, z, h_cond, t_cond, r_cond_corner, 0.0004);
-                conductor_bdry.AttribID = phyTurnsCondBdry[i] = i + 2 * num_discs * turns_per_disc + 4;
+                conductor_bdry.AttribID = phyTurnsCondBdry[i] = i + 2 * num_discs * turns_per_disc + 5;
                 if (include_ins)
                 {
                     var insulation_bdry = geometry.AddRoundedRectangle(r, z, h_cond + 2 * t_ins, t_cond + 2 * t_ins, r_cond_corner + t_ins, 0.003);
                     var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                    insulation_surface.AttribID = phyTurnsIns[i] = i + num_discs * turns_per_disc + 4;
+                    insulation_surface.AttribID = phyTurnsIns[i] = i + num_discs * turns_per_disc + 5;
                     conductorins_bdrys[i] = insulation_bdry;
                 }
                 var conductor_surface = geometry.AddSurface(conductor_bdry);
-                conductor_surface.AttribID = phyTurnsCond[i] = i + 4;
+                conductor_surface.AttribID = phyTurnsCond[i] = i + 5;
                 if (!include_ins)
                 {
                     conductorins_bdrys[i] = conductor_bdry;
@@ -89,18 +90,26 @@ namespace MTLTestUI
 
             var pt_origin = geometry.AddPoint(0, 0, 0.1);
             var pt_axis_top = geometry.AddPoint(0, bdry_radius, 0.1);
+            var pt_axis_top_inf = geometry.AddPoint(0, 1.1*bdry_radius, 0.1);
             var pt_axis_bottom = geometry.AddPoint(0, -bdry_radius, 0.1);
+            var pt_axis_bottom_inf = geometry.AddPoint(0, -1.1 * bdry_radius, 0.1);
             var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
+            var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
+            var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
             //var axis_lower = geometry.AddLine(pt_axis_bottom, pt_origin);
             axis.AttribID = phyAxis = 3;
             //axis_lower.AttribID = 3;
             var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, Math.PI);
-
+            var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, Math.PI);
             var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
+            var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
             outer_bdry.AttribID = phyExtBdry = 2;
 
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys);
             interior_surface.AttribID = phyAir = 1;
+
+            var inf_surface = geometry.AddSurface(outer_bdry_inf);
+            inf_surface.AttribID = phyInf = 4;
 
             GmshFile gmshFile = new GmshFile("case.geo");
             gmshFile.lc = 0.1;
@@ -162,7 +171,6 @@ namespace MTLTestUI
             // direct start
             //p.StartInfo.UseShellExecute = false;
 
-            //p.Start();
             p.Start();
 
             // start our event pumps
@@ -181,9 +189,14 @@ namespace MTLTestUI
             //}
         }
 
-        public Vector<double> CalcCapacitance(int posTurn, int proc)
+        public Vector<double> CalcCapacitance(int posTurn)
         {
-            var f = File.CreateText($"Results/{proc}/case.pro");
+            string dir = posTurn.ToString();
+            
+            string model_prefix = $"./Results/{dir}/";
+            Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
+
+            var f = File.CreateText($"Results/{dir}/case.pro");
 
             f.WriteLine("Group{");
             f.WriteLine($"Air = Region[{phyAir}];");
@@ -238,7 +251,7 @@ namespace MTLTestUI
 
             // f.write(f"Ground = Region[{phyCore}];\n")
             f.WriteLine($"Axis = Region[{phyAxis}];");
-            f.WriteLine($"Surface_Inf = Region[{phyExtBdry}];");
+            f.WriteLine($"Surface_Inf = Region[{phyInf}];");
             f.WriteLine("Vol_Ele = Region[{Air, TurnIns}];");
             f.Write("Sur_C_Ele = Region[{");
             //f.Write($"Turn{posTurn}}}];");
@@ -257,23 +270,28 @@ namespace MTLTestUI
             f.WriteLine("}");
 
             //TODO: Fix for case where posTurn is last turn
+            firstTurn = true;
             string otherTurns = "";
             for (int i = 0; i < num_discs * turns_per_disc; i++)
             {
                 if (i != posTurn)
                 {
-                    otherTurns += $"Turn{i}";
-                    if ((i < (num_discs * turns_per_disc - 1)))
+                    if (!firstTurn)
                     {
-                        otherTurns += $", ";
+                        otherTurns += ", ";
                     }
+                    else
+                    {
+                        firstTurn = false;
+                    }
+                    otherTurns += $"Turn{i}";
                 }
             }
 
             f.WriteLine($@"
             Flag_Axi = 1;
 
-            Include ""../../Lib_Materials.pro"";
+            Include ""../../GetDP_Files/Lib_Materials.pro"";
 
             Function {{
                 dn[Region[Axis]] = 0; 
@@ -298,7 +316,7 @@ namespace MTLTestUI
             }}
             Constraint {{ {{ Name GlobalElectricCharge; Case {{ }} }} }}
 
-            Include ""../../Lib_Electrostatics_v.pro"";
+            Include ""../../GetDP_Files/Lib_Electrostatics_v.pro"";
             ");
 
 
@@ -307,29 +325,49 @@ namespace MTLTestUI
 
             string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
             string mygetdp = onelab_dir + "getdp.exe";
-            string model_prefix = $"./Results/{proc}/";
 
             string model = model_prefix + "case";
-            string model_msh = model + ".msh";
+            string model_msh = "case.msh";
             string model_pro = model + ".pro";
             double freq = 1e3;
+
+            var sb = new StringBuilder();
             Process p = new Process();
 
             //p.StartInfo.FileName = "cmd.exe";
             //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{proc} -solve Electrostatics_v -pos Electrostatics_v -v 5";
 
             p.StartInfo.FileName = mygetdp;
-            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{proc} -solve Electrostatics_v -pos Electrostatics_v -v 5";
-            p.StartInfo.UseShellExecute = false;
+            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir} -solve Electrostatics_v -pos Electrostatics_v -v 5";
             p.StartInfo.CreateNoWindow = true;
 
+            // redirect the output
+            p.StartInfo.RedirectStandardOutput = true;
+            p.StartInfo.RedirectStandardError = true;
+
+            // hookup the eventhandlers to capture the data that is received
+            p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
+            p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+
+            // direct start
+            p.StartInfo.UseShellExecute = false;
+
             p.Start();
+
+            // start our event pumps
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            // until we are done
             p.WaitForExit();
-            //int return_code = P.ExitCode;
-            //if (return_code != 0)
-            //{
-            //    throw new Exception("Failed to run getdp in C_tt_getdp");
-            //}
+
+            string output = sb.ToString();
+
+            int return_code = p.ExitCode;
+            if (return_code != 0)
+            {
+                throw new Exception($"Failed to run getdp in CalcCapacitance for turn {posTurn}");
+            }
 
             (double r, double z) = GetTurnMidpoint(posTurn);
 
@@ -355,17 +393,11 @@ namespace MTLTestUI
             //    File.Copy("case.msh", procDirectory + "case.msh", true);
             //}
 
-            int proc = 0;
-
             //Parallel.For(0, num_discs * turns_per_disc, t =>
             //{
             for (int t = 0; t < num_discs * turns_per_disc; t++)
             {
-                proc = Thread.CurrentThread.ManagedThreadId;
-                string procDirectory = Directory.GetCurrentDirectory() + $"/Results/{proc}/";
-                Directory.CreateDirectory(procDirectory);
-                File.Copy("case.msh", procDirectory + "case.msh", true);
-                C_getdp.SetRow(t, CalcCapacitance(t, proc));
+                C_getdp.SetRow(t, CalcCapacitance(t));
                 Console.WriteLine($"Self capacitance for turn {t}: {C_getdp[t, t]}");
             }//);
 
@@ -393,7 +425,7 @@ namespace MTLTestUI
             //        Console.WriteLine($"Mutual capacitance between turn {t1} & {t2}: {C_getdp[t1, t2]}");
             //    });
             //});
-
+            Console.Write((C_getdp / 1e-12).ToMatrixString());
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
         }
 
@@ -470,12 +502,12 @@ namespace MTLTestUI
             //f.WriteLine($"Ground = Region[{phyGnd}];");
             //Surface_bn0 doesn't appear to do anything (also, surface?)
             f.WriteLine($"Axis = Region[{phyAxis}];");
-            f.WriteLine($"Surface_Inf = Region[{phyExtBdry}];");
-            f.WriteLine("Vol_Mag += Region[{Air, TurnPos, TurnNeg, TurnZero}];");
+            f.WriteLine($"Surface_Inf = Region[{phyInf}];");
+            f.WriteLine("Vol_Mag += Region[{Air, TurnPos, TurnNeg, TurnZero, Surface_Inf}];");
             f.WriteLine("Vol_C_Mag += Region[{TurnPos, TurnNeg, TurnZero}];");
             f.WriteLine("}");
             //f.WriteLine($"freq={freq};");
-            f.WriteLine("Include \"../../L_s_inf.pro\";");
+            f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
             f.Close();
 
             string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
@@ -566,7 +598,7 @@ namespace MTLTestUI
                 }
             }
 
-            //Console.Write((L_getdp/1e-9).ToMatrixString());
+            Console.Write((L_getdp/1e-9).ToMatrixString());
 
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }

@@ -47,7 +47,7 @@ namespace MatrixExponential
 
                     int p = 5; // order of Padé 
 
-                    // high matrix norm may result in high roundoff erroros, 
+                    // high matrix norm may result in high roundoff errors, 
                     // so first we have to find normalizing coefficient such that || m / norm_coeff || < 0.5
                     // to reduce the following computations we set it norm_coeff = 2^k
 
@@ -63,7 +63,7 @@ namespace MatrixExponential
                     Matrix<Complex> D = Matrix<Complex>.Build.DenseIdentity(m.RowCount);
                     Matrix<Complex> m_pow_j = m;
 
-                    int q = p; // here we use simmetric approximation, but in general p may not be equal to q.
+                    int q = p; // here we use symmetric approximation, but in general p may not be equal to q.
                     for (int j = 1; j <= Math.Max(p, q); j++)
                     {
                         if (j > 1)

@@ -80,7 +80,7 @@ namespace MTLTestApp
 
             Console.WriteLine("Hello, World!");
 
-            string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0"; // Specify the directory path
+            string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
             List<(string FileName, double NumericValue)> filesWithValues = new List<(string FileName, double NumericValue)>();
 
             // Get all files in the directory
@@ -137,9 +137,9 @@ namespace MTLTestApp
             //DisplayMatrixAsTable(C_matrix_analytic / 1e-12); //pF/m
             //DisplayMatrixAsTable(L_matrix_analytic / 1e-9); //nH/m
 
-            Matrix<double> C_matrix_getdp = DelimitedReader.Read<double>("C_getdp.csv", false, ",", false);
+            Matrix<double> C_matrix_getdp = DelimitedReader.Read<double>(directoryPath + "/C_getdp.csv", false, ",", false);
             //Matrix<double> C_matrix_getdp_loweps = DelimitedReader.Read<double>("C_getdp_eps2.2.csv", false, ",", false);
-            Matrix<double> L_matrix_getdp = DelimitedReader.Read<double>("L_getdp_1.00E4.csv", false, ",", false);
+            Matrix<double> L_matrix_getdp = DelimitedReader.Read<double>(directoryPath + "/L_getdp_6.00E1.csv", false, ",", false);
 
             //DisplayMatrixAsTable(C_matrix_getdp / 1e-12); //pF/m
             //DisplayMatrixAsTable(L_matrix_getdp / 1e-9);

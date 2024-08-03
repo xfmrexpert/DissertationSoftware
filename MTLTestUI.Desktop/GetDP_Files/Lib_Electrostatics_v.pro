@@ -211,8 +211,8 @@ PostOperation {
     Operation {
       resPath = StrCat[modelPath, "/res/"];
       CreateDir[resPath];
-      Print[ e, OnElementsOf Vol_Ele, File "res/e.pos"];
-      Print[ v, OnElementsOf Vol_Ele, File "res/v.pos"];
+      //Print[ e, OnElementsOf Vol_Ele, File "res/e.pos"];
+      //Print[ v, OnElementsOf Vol_Ele, File "res/v.pos"];
       //Echo[ "Microstrip capacitance [F]:", Format Table, "res/out.txt"];
       Print[ C, OnRegion Sur_C_Ele, File "res/out.txt",
 	    Format Table, SendToServer "Output/Global/Capacitance [F]" ];

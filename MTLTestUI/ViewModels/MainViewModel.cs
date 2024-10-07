@@ -18,8 +18,9 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         _mainModel = new MainModel();
-        _mainModel.num_discs = 2;
-        _mainModel.turns_per_disc = 3;
+        
+        //_mainModel.num_discs = 2;
+        //_mainModel.turns_per_disc = 3;
         _mainModel.eps_paper = 3.5;
         
         //for (int i = 0; i < 10; i++)
@@ -27,6 +28,7 @@ public partial class MainViewModel : ViewModelBase
             _mainModel.bdry_radius = 3.0;
             Console.WriteLine($"Boundary Radius: {_mainModel.bdry_radius}");
             Geometry = _mainModel.GenerateGeometry();
+            _mainModel.CalcFEMM(Geometry);
             DxfFile dxfFile = new DxfFile();
             dxfFile.CreateFromGeometry(Geometry);
             double meshscale = 1.0; // 5.0 / (i + 1.0);

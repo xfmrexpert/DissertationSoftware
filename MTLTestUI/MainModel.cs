@@ -12,6 +12,7 @@ using TDAP;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Data;
+using Femm;
 
 namespace MTLTestUI
 {
@@ -472,6 +473,11 @@ namespace MTLTestUI
                 f.WriteLine("}];");
             }
 
+            for (int i = 0; i < num_discs * turns_per_disc; i++)
+            {
+                f.WriteLine($"Turn{i} = Region[{phyTurnsCond[i]}];");
+            }
+
             f.WriteLine($"TurnPos = Region[{phyTurnsCond[posTurn]}];");
             if (negTurn >= 0)
             {
@@ -503,8 +509,22 @@ namespace MTLTestUI
             //Surface_bn0 doesn't appear to do anything (also, surface?)
             f.WriteLine($"Axis = Region[{phyAxis}];");
             f.WriteLine($"Surface_Inf = Region[{phyInf}];");
-            f.WriteLine("Vol_Mag += Region[{Air, TurnPos, TurnNeg, TurnZero, Surface_Inf}];");
-            f.WriteLine("Vol_C_Mag += Region[{TurnPos, TurnNeg, TurnZero}];");
+            //f.WriteLine("Vol_C_Mag += Region[{TurnPos, TurnNeg, TurnZero}];");
+            f.Write("Turns = Region[{");
+            for (int i = 0; i < num_discs * turns_per_disc; i++)
+            {
+                f.Write($"Turn{i}");
+                if (i < (num_discs * turns_per_disc - 1))
+                {
+                    f.Write(", ");
+                }
+                else
+                {
+                    f.Write("}];\n");
+                }
+            }
+            f.WriteLine("Vol_Mag += Region[{Air, Turns, Surface_Inf}];");
+            f.WriteLine("Vol_C_Mag = Region[{Turns}];");
             f.WriteLine("}");
             //f.WriteLine($"freq={freq};");
             f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
@@ -517,7 +537,8 @@ namespace MTLTestUI
             string model = model_prefix + "case";
             string model_msh = "case.msh";
             string model_pro = model + ".pro";
-            
+
+            var sb = new StringBuilder();
             Process p = new Process();
 
             //p.StartInfo.FileName = "cmd.exe";
@@ -525,16 +546,35 @@ namespace MTLTestUI
 
             p.StartInfo.FileName = mygetdp;
             p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
-            p.StartInfo.UseShellExecute = false;
             p.StartInfo.CreateNoWindow = true;
 
+            // redirect the output
+            p.StartInfo.RedirectStandardOutput = true;
+            p.StartInfo.RedirectStandardError = true;
+
+            // hookup the eventhandlers to capture the data that is received
+            p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
+            p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+
+            // direct start
+            p.StartInfo.UseShellExecute = false;
+
             p.Start();
-            p.WaitForExit(120000);
-            //int return_code = P.ExitCode;
-            //if (return_code != 0)
-            //{
-            //    throw new Exception("Failed to run getdp in C_tt_getdp");
-            //}
+
+            // start our event pumps
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            // until we are done
+            p.WaitForExit();
+
+            string output = sb.ToString();
+
+            int return_code = p.ExitCode;
+            if (return_code != 0)
+            {
+                throw new Exception($"Failed to run getdp in CalcCapacitance for turn {posTurn}");
+            }
 #endif
             (double r, double z) = GetTurnMidpoint(posTurn);
 
@@ -589,6 +629,8 @@ namespace MTLTestUI
             //}
             //);
 
+            Console.Write((L_getdp * 2 * Math.PI / 1e-9).ToMatrixString());
+
             for (int t1 = 0; t1 < n_turns; t1++)
             {
                 (double r, double z) = GetTurnMidpoint(t1);
@@ -602,5 +644,24 @@ namespace MTLTestUI
 
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
+
+        public void CalcFEMM(Geometry geo)
+        {
+            var femm = new ActiveFEMM();
+            femm.call2femm("newdocument(0)");
+            double frequency = 60;
+            femm.call2femm($"mi probdef({frequency},\"meters\",\"axi\",1e-8");
+            foreach (var pt in geo.Points)
+            {
+                femm.call2femm($"mi_addnode({pt.x}, {pt.y})");
+            }
+            foreach (var line in geo.Lines)
+            {
+                femm.call2femm($"mi_addsegment({line.pt1.x}, {line.pt1.y}, {line.pt2.x}, {line.pt2.y})");
+            }
+        }
+
+       
     }
+
 }

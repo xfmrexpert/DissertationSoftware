@@ -15,5 +15,7 @@ namespace TDAP
 
         public int AttribID { get; set; } = -1;
 
+        public virtual bool Contains(GeomPoint point) { return false; }
+
     }
 }

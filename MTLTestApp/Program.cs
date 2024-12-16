@@ -17,7 +17,10 @@ using System.Text;
 using Microsoft.Data.Analysis;
 using System.Text.RegularExpressions;
 using System.Linq;
+using MathNet.Numerics.Distributions;
 //using System.Collections.Immutable;
+using TfmrLib;
+using System.Collections.Generic;
 
 namespace MTLTestApp
 {
@@ -25,7 +28,6 @@ namespace MTLTestApp
     using Matrix_c = LinAlg.Matrix<Complex>;
     using Vector_d = LinAlg.Vector<double>;
     using Vector_c = LinAlg.Vector<Complex>;
-    using static Plotly.NET.StyleParam;
 
     internal class Program
     {
@@ -34,53 +36,16 @@ namespace MTLTestApp
         static private VectorBuilder<double> V_d = Vector_d.Build;
         static private VectorBuilder<Complex> V_c = Vector_c.Build;
 
-        static double dist_wdg_tank_right = 4;
-        static double dist_wdg_tank_top = 4;
-        static double dist_wdg_tank_bottom = 2;
-        static double r_inner = in_to_m(15.25);
-        static double t_cond = in_to_m(0.085);
-        static double h_cond = in_to_m(0.3);
-        static double t_ins = in_to_m(0.018);
-        static double h_spacer = in_to_m(0.188);
-        static double r_cond_corner = 0.1 * t_cond;
-        static int num_discs = 14;
-        static int turns_per_disc = 20;
-        static double eps_oil = 1.0; //2.2;
-        static double eps_paper = 2.2; //3.5;
-        static double rho_c = 1.68e-8; //ohm-m;
-        static Complex Rs = Complex.Zero;
-        static Complex Rl = Complex.Zero;
-
-        //static double dist_wdg_tank_right = 40.0 / 1000.0;
-        //static double dist_wdg_tank_top = 40.0 / 1000.0;
-        //static double dist_wdg_tank_bottom = 40.0 / 1000.0;
-        //static double r_inner = 20.0 / 1000.0;
-        //static double t_cond = 3.0 / 1000.0;
-        //static double h_cond = 12.0 / 1000.0;
-        //static double t_ins = 0.5 / 1000.0;
-        //static double h_spacer = 6.0 / 1000.0;
-        //static int num_discs = 2;
-        //static int turns_per_disc = 6;
-        //static double eps_oil = 2.2;
-        //static double eps_paper = 3.5;
-
         static double eps0 = 8.854e-12;
 
         static int num_freqs = 1000;
-        static double min_freq = 10e3;
-        static double max_freq = 50e6;
+        static double min_freq = 100e3; //10e3;
+        static double max_freq = 1e6; //50e6;
 
-        private static double in_to_m(double x_in)
+        static Winding wdg = new Winding();
+
+        public static List<(double Freq, Matrix<double> L_matrix)> ReadInductances(string directoryPath)
         {
-            return x_in * 25.4 / 1000;
-        }
-
-        static void Main(string[] args)
-        {
-
-            Console.WriteLine("Hello, World!");
-
-            string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
             List<(string FileName, double NumericValue)> filesWithValues = new List<(string FileName, double NumericValue)>();
 
             // Get all files in the directory
@@ -111,23 +76,49 @@ namespace MTLTestApp
             // Sort the list by the numeric value
             filesWithValues.Sort((a, b) => a.NumericValue.CompareTo(b.NumericValue));
 
-            List<(double Freq, Matrix<double> L_matrix)> L_matrices_getdp = new List<(double Freq, Matrix<double> L_matrix)>();
+            List<(double Freq, Matrix<double> L_matrix)> L_matrices = new List<(double Freq, Matrix<double> L_matrix)>();
 
             // Output the sorted filenames and their values
             foreach (var file in filesWithValues)
             {
                 Console.WriteLine($"{file.FileName} - {file.NumericValue}");
-                L_matrices_getdp.Add((file.NumericValue, DelimitedReader.Read<double>(file.FileName, false, ",", false)));
+                L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(file.FileName, false, ",", false)));
             }
 
+            return L_matrices;
+        }
+
+        static List<DataFrame> ReadMeasuredData(string directoryPath)
+        {
             List<DataFrame> measuredData = new List<DataFrame>();
             for (int j = 1; j <= 6; j++)
             {
-                measuredData.Add(ReadCSVToDF($"26DEC2023_Rough_NoCore/SDS0000{j}_bode.csv"));
+                measuredData.Add(ReadCSVToDF($"{directoryPath}/SDS0000{j}_bode.csv"));
             }
-            
 
-            int numturns = turns_per_disc * num_discs;
+            return measuredData;
+        }
+
+        static void Main(string[] args)
+        {
+
+            Console.WriteLine("Hello, World!");
+
+            string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
+            
+            var L_matrices_getdp = ReadInductances(directoryPath);
+
+            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\26DEC2023_Rough_NoCore");
+
+            double[] r_t = new double[wdg.num_turns];
+            for (int disc = 0; disc < wdg.num_discs; disc++)
+            {
+                for (int turn = 0; turn < wdg.turns_per_disc; turn++)
+                {
+                    int n = disc * wdg.turns_per_disc + turn;
+                    r_t[n] = wdg.GetTurnMidpoint(n).r;
+                }
+            }
 
             //GenerateGeometry();
 
@@ -144,46 +135,42 @@ namespace MTLTestApp
             //DisplayMatrixAsTable(C_matrix_getdp / 1e-12); //pF/m
             //DisplayMatrixAsTable(L_matrix_getdp / 1e-9);
 
-            double[] R_t = new double[numturns];
-            for (int t = 0; t < numturns; t++)
+            List<(double Freq, Matrix<double> L_matrix)> L_matrices_analytic = new List<(double Freq, Matrix<double> L_matrix)>();
+
+            for (double f = 100e3; f <=1e6; f=f+100e3)
             {
-                R_t[t] = R_c(h_cond, t_cond);
+                Matrix<double> L_matrix = Calc_Lmatrix_analytic(f);
+                L_matrices_analytic.Add((f, L_matrix));
+            }
+
+            double[] R_t = new double[wdg.num_turns];
+            for (int t = 0; t < wdg.num_turns; t++)
+            {
+                R_t[t] = R_c(wdg.h_cond, wdg.t_cond);
                 //R_t[t] = R_c_old(r_c, t_cwall);
             }
 
             //TODO: Factor in skin effect mo' better
-            double[] K_t = new double[numturns];
+            double[] K_t = new double[wdg.num_turns];
             
-            for (int t = 0; t < numturns; t++)
+            for (int t = 0; t < wdg.num_turns; t++)
             {
                 K_t[t] = 0;
                 //K_t[t] = 2/(r_c/1000)*Math.Sqrt(rho_c*4*Math.PI*1e-7/Math.PI);
             }
 
-            double[] d_t = new double[numturns];
-            for (int disc = 0; disc < num_discs; disc++)
-            {
-                for (int turn = 0; turn < turns_per_disc; turn++)
-                {
-                    if (disc % 2 == 0)
-                    {
-                        //out to in
-                        d_t[disc * turns_per_disc + turn] = 2 * (r_inner + (turns_per_disc - turn) * (t_cond + 2 * t_ins) - (t_cond / 2 + t_ins));
-                    }
-                    else
-                    {
-                        //in to out
-                        d_t[disc * turns_per_disc + turn] = 2 * (r_inner + turn * (t_cond + 2 * t_ins) + (t_cond / 2 + t_ins));
-                    }
-                    Console.WriteLine($"Turn {disc * turns_per_disc + turn}: d_t={d_t[disc * turns_per_disc + turn]}");
-                }
-            }
-
-            var V_response_getdp = CalcResponseMTL(L_matrices_getdp, C_matrix_getdp, V_d.Dense(R_t), V_d.Dense(K_t), V_d.Dense(d_t));
-            var V_response_analytic = CalcResponseMTL(new List<(double Freq, Matrix<double> L_matrix)>().Append((1e4, L_matrix_analytic)).ToList(), C_matrix_analytic, V_d.Dense(R_t), V_d.Dense(K_t), V_d.Dense(d_t));
+            var V_response_getdp = CalcResponseMTL(L_matrices_getdp, C_matrix_getdp, V_d.Dense(R_t), V_d.Dense(K_t), V_d.Dense(r_t));
+            var V_response_analytic = CalcResponseMTL(L_matrices_analytic, C_matrix_analytic, V_d.Dense(R_t), V_d.Dense(K_t), V_d.Dense(r_t));
 
             //var V_response_lumped = CalcResponseLumped(L_matrix_getdp, C_matrix_getdp, V_d.Dense(R_t), V_d.Dense(d_t), numturns);
 
+            ShowPlots(measuredData, V_response_getdp, V_response_analytic);
+
+            
+        }
+
+        public static void ShowPlots(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic)
+        {
             //var freqs = Generate.LinearSpaced(num_freqs, min_freq, max_freq);
             var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
@@ -203,19 +190,24 @@ namespace MTLTestApp
             layout.SetValue("yaxis", yAxis);
             layout.SetValue("showlegend", true);
 
-            var charts = new List<GenericChart.GenericChart>();
+            var charts = new List<GenericChart>();
             int i = 0;
-            for (int t = 40; t < numturns - 1; t = t + 40)
+            // TODO: Verify this
+            for (int t = 40; t < (wdg.turns_per_disc * wdg.num_discs - 1); t = t + 40)
             {
+                Console.WriteLine($"Turn: {t - 1}\tr: {wdg.GetTurnMidpoint(t - 1).r}\tz: {wdg.GetTurnMidpoint(t - 1).z}");
+                Console.WriteLine($"Turn: {t}\tr: {wdg.GetTurnMidpoint(t).r}\tz: {wdg.GetTurnMidpoint(t).z}");
+                Console.WriteLine($"Turn: {t + 1}\tr: {wdg.GetTurnMidpoint(t + 1).r}\tz: {wdg.GetTurnMidpoint(t + 1).z}");
+
                 //var traces = new List<Plotly.NET.Trace>();
                 var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Color.fromString("Red")).WithLayout(layout);
                 //trace.SetValue("x", freqs);
                 //trace.SetValue("y", V_response_analytic[t]);
                 //trace.SetValue("mode", "lines");
                 //trace.SetValue("name", $"Turn {t + 1}");
-                
+
                 //var trace2 = new Plotly.NET.Trace("scatter");
-                
+
                 var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Color.fromString("Blue")).WithLayout(layout);
                 //trace2.SetValue("x", measuredData[i]["Frequency(Hz)"]);
                 //trace2.SetValue("y", measuredData[i]["CH2 Amplitude(dB)"]);
@@ -232,10 +224,9 @@ namespace MTLTestApp
 
                 charts.Add(Chart.Combine([chart1, chart2, chart3]).WithTitle($"Turn {t}"));
                 //charts.Add(chart2);
-
             }
 
-            var subplotGrid = Chart.Grid<IEnumerable<GenericChart.GenericChart>>(3, 2).Invoke(charts).WithSize(1600, 1200);
+            var subplotGrid = Chart.Grid<IEnumerable<string>, IEnumerable <GenericChart>> (3, 2).Invoke(charts).WithSize(1600, 1200);
 
             // Show the combined chart with subplots
             subplotGrid.Show();
@@ -266,13 +257,13 @@ namespace MTLTestApp
 
             var geometry = new Geometry();
 
-            var conductor_bdrys = new GeomLineLoop[num_discs * turns_per_disc];
+            var conductor_bdrys = new GeomLineLoop[wdg.num_discs * wdg.turns_per_disc];
 
-            for (int i = 0; i < num_discs * turns_per_disc; i++)
+            for (int i = 0; i < wdg.num_discs * wdg.turns_per_disc; i++)
             {
-                (double r, double z) = GetTurnMidpoint(i);
-                var conductor_bdry = geometry.AddRoundedRectangle(r, z, h_cond, t_cond, r_cond_corner);
-                var insulation_bdry = geometry.AddRoundedRectangle(r, z, h_cond + 2*t_ins, t_cond + 2*t_ins, r_cond_corner + t_ins);
+                (double r, double z) = wdg.GetTurnMidpoint(i);
+                var conductor_bdry = geometry.AddRoundedRectangle(r, z, wdg.h_cond, wdg.t_cond, wdg.r_cond_corner);
+                var insulation_bdry = geometry.AddRoundedRectangle(r, z, wdg.h_cond + 2* wdg.t_ins, wdg.t_cond + 2* wdg.t_ins, wdg.r_cond_corner + wdg.t_ins);
                 var conductor_surface = geometry.AddSurface(conductor_bdry);
                 var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
                 conductor_bdrys[i] = insulation_bdry;
@@ -291,21 +282,21 @@ namespace MTLTestApp
         }
 
         //PUL Inductances
-        private static Matrix<double> Calc_Lmatrix_analytic()
+        private static Matrix<double> Calc_Lmatrix_analytic(double f = 60)
         {
             var M = Matrix<double>.Build;
 
-            Matrix<double> L = M.Dense(num_discs * turns_per_disc, num_discs * turns_per_disc);
+            Matrix<double> L = M.Dense(wdg.num_discs * wdg.turns_per_disc, wdg.num_discs * wdg.turns_per_disc);
 
-            for (int i = 0; i < num_discs * turns_per_disc; i++)
+            for (int i = 0; i < wdg.num_discs * wdg.turns_per_disc; i++)
             {
-                (double r_i, double z_i) = GetTurnMidpoint(i);
-                L[i, i] = CalcSelfInductance(h_cond, t_cond, r_i) / (2 * Math.PI * r_i);
-                for (int j = i + 1; j < num_discs * turns_per_disc; j++)
+                (double r_i, double z_i) = wdg.GetTurnMidpoint(i);
+                L[i, i] = CalcSelfInductance(wdg.h_cond, wdg.t_cond, r_i, f) / (2 * Math.PI * r_i);
+                for (int j = i + 1; j < wdg.num_discs * wdg.turns_per_disc; j++)
                 {
-                    (double r_j, double z_j) = GetTurnMidpoint(j);
-                    L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, h_cond, t_cond, r_j, z_j, h_cond, t_cond) / (2 * Math.PI * r_i);
-                    L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, h_cond, t_cond, r_j, z_j, h_cond, t_cond) / (2 * Math.PI * r_j);
+                    (double r_j, double z_j) = wdg.GetTurnMidpoint(j);
+                    L[i, j] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_i);
+                    L[j, i] = CalcMutualInductance_Lyle(r_i, z_i, wdg.h_cond, wdg.t_cond, r_j, z_j, wdg.h_cond, wdg.t_cond) / (2 * Math.PI * r_j);
                 }
             }
 
@@ -318,10 +309,10 @@ namespace MTLTestApp
 
             var M = Matrix<double>.Build;
 
-            Matrix<double> C = M.Dense(num_discs * turns_per_disc, num_discs * turns_per_disc);
+            Matrix<double> C = M.Dense(wdg.num_discs * wdg.turns_per_disc, wdg.num_discs * wdg.turns_per_disc);
 
             //TODO: Need to modify to go from out to in and in to out
-            for (int i = 0; i < num_discs; i++)
+            for (int i = 0; i < wdg.num_discs; i++)
             {
                 double C_abv;
                 double C_bel;
@@ -333,34 +324,34 @@ namespace MTLTestApp
                 // For now, let's calculate four capacitances for each turn
                 // If last disc (section), above is prev disc, below is tank
                 // TODO: How to handle segments above and below
-                if (i == (num_discs - 1))
+                if (i == (wdg.num_discs - 1))
                 {
-                    C_abv = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = eps_0 * wdg.eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_abv = eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_abv = i - 1;
-                    C_bel = eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_bel = eps_0 * wdg.eps_oil * wdg.t_cond / dist_to_ground;
                     n_bel = -1;
                     Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else if (i == 0) // If first disc, above is tank, below is next disc
                 {
-                    C_abv = eps_0 * eps_oil * t_cond / dist_to_ground;
+                    C_abv = eps_0 * wdg.eps_oil * wdg.t_cond / dist_to_ground;
                     n_abv = -1;
-                    C_bel = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_bel = eps_0 * wdg.eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_bel = eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_bel = i + 1;
                     Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else
                 {
-                    C_abv = C_bel = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
-                    C_abv = C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
+                    C_abv = C_bel = eps_0 * wdg.eps_oil * wdg.t_cond / (wdg.h_spacer + 2 * wdg.t_ins);
+                    C_abv = C_bel = eps_0 * (k / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_oil) + (1 - k) / (2 * wdg.t_ins / wdg.eps_paper + (2 * wdg.t_ins + wdg.h_spacer) / wdg.eps_paper)) * (wdg.t_cond + 2 * wdg.t_ins);
                     n_abv = i - 1;
                     n_bel = i + 1;
                     Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
 
-                for (int j = 0; j < turns_per_disc; j++)
+                for (int j = 0; j < wdg.turns_per_disc; j++)
                 {
                     double C_lt;
                     double C_rt;
@@ -368,20 +359,20 @@ namespace MTLTestApp
                     bool out_to_in = (i % 2 == 0);
 
                     // If first turn in section, left is inner winding or core, right is next turn
-                    if ((j == 0 && !out_to_in) || (j == (turns_per_disc - 1) && out_to_in))
+                    if ((j == 0 && !out_to_in) || (j == (wdg.turns_per_disc - 1) && out_to_in))
                     {
-                        C_lt = eps_0 * eps_paper * h_cond / dist_to_ground;
-                        C_rt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
+                        C_rt = eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
                         
                     }
-                    else if ((j == (turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
+                    else if ((j == (wdg.turns_per_disc - 1) && !out_to_in) || (j == 0 && out_to_in)) // If last turn in section, left is previous turn, right is outer winding or tank
                     {
-                        C_lt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
-                        C_rt = eps_0 * eps_paper * h_cond / dist_to_ground;
+                        C_lt = eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
+                        C_rt = eps_0 * wdg.eps_paper * wdg.h_cond / dist_to_ground;
                     }
                     else
                     {
-                        C_lt = C_rt = eps_0 * eps_paper * (h_cond + 2 * t_ins) / (2 * t_ins);
+                        C_lt = C_rt = eps_0 * wdg.eps_paper * (wdg.h_cond + 2 * wdg.t_ins) / (2 * wdg.t_ins);
                     }
 
                     int disc_abv = i - 1;
@@ -392,17 +383,17 @@ namespace MTLTestApp
                     }
                     else
                     {
-                        n_abv = disc_abv * turns_per_disc + (turns_per_disc - j - 1);
+                        n_abv = disc_abv * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
                     }
                     int disc_bel = i + 1;
-                    if (disc_bel >= num_discs)
+                    if (disc_bel >= wdg.num_discs)
                     {
                         // ground below
                         n_bel = -1;
                     }
                     else
                     {
-                        n_bel = disc_bel * turns_per_disc + (turns_per_disc - j - 1);
+                        n_bel = disc_bel * wdg.turns_per_disc + (wdg.turns_per_disc - j - 1);
                     }
 
                     int n_lt;
@@ -410,13 +401,13 @@ namespace MTLTestApp
 
                     if (i % 2 == 0) //out to in
                     {
-                        n_lt = i * turns_per_disc + j + 1;
-                        n_rt = i * turns_per_disc + j - 1;
+                        n_lt = i * wdg.turns_per_disc + j + 1;
+                        n_rt = i * wdg.turns_per_disc + j - 1;
                         if (j == 0)
                         {
                             n_rt = -1;
                         }
-                        if (j >= (turns_per_disc - 1))
+                        if (j >= (wdg.turns_per_disc - 1))
                         {
                             n_lt = -1;
                         }
@@ -424,13 +415,13 @@ namespace MTLTestApp
                     }
                     else //in to out
                     {
-                        n_lt = i * turns_per_disc + j - 1;
-                        n_rt = i * turns_per_disc + j + 1;
+                        n_lt = i * wdg.turns_per_disc + j - 1;
+                        n_rt = i * wdg.turns_per_disc + j + 1;
                         if (j == 0)
                         {
                             n_lt = -1;
                         }
-                        if (j >= (turns_per_disc - 1))
+                        if (j >= (wdg.turns_per_disc - 1))
                         {
                             n_rt = -1;
                         }
@@ -438,7 +429,7 @@ namespace MTLTestApp
                         //Console.WriteLine("In to out");
                     }
 
-                    int n = i * turns_per_disc + j;
+                    int n = i * wdg.turns_per_disc + j;
                     Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
 
                     // Assemble C_abv, C_bel, C_lt, C_rt into C_seg
@@ -471,14 +462,21 @@ namespace MTLTestApp
 
         public static double R_c(double h_m, double w_m)
         {
-            return rho_c / (h_m * w_m);
+            return wdg.rho_c / (h_m * w_m);
         }
 
-        private static double CalcSelfInductance(double h, double w, double r_avg)
+        private static double CalcSelfInductance(double h, double w, double r_avg, double f)
         {
             double mu_0 = 4 * Math.PI * 1e-7;
+            double mu_r = 1.0;
+            double sigma = 5.8e7; // Conductivity of copper (S/m)
             double GMD = Math.Exp(0.5 * Math.Log(h * h + w * w) + 2 * w / (3 * h) * Math.Atan(h / w) + 2 * h / (3 * w) * Math.Atan(w / h) - w * w / (12 * h * h) * Math.Log(1 + h * h / (w * w)) - h * h / (12 * w * w) * Math.Log(1 + w * w / (h * h)) - 25 / 12);
-            double L_s = mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
+            // Internal inductance
+            double L_int_low = mu_0 * mu_r / (8 * Math.PI);  // Low-frequency internal inductance
+            double omega = 2 * Math.PI * f;      // Angular frequency
+            double delta = Math.Sqrt(2 / (omega * mu_0 * mu_r * sigma));  // Skin depth
+            double L_int = L_int_low * Math.Min(1, delta / (GMD/2));  // Smooth transition
+            double L_s = L_int + mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
             Console.WriteLine($"r_avg: {r_avg} GMD: {GMD} L_s: {L_s/1e-9} L_s/l: {L_s/(2*Math.PI*r_avg)/1e-9}");
             return L_s;
         }
@@ -571,7 +569,7 @@ namespace MTLTestApp
         public static Matrix_c CalcHB(int n, double f)
         {
             Matrix_c HB11 = M_c.Dense(n, n);
-            HB11[0, 0] = Rs; //Source impedance
+            HB11[0, 0] = wdg.Rs; //Source impedance
             Matrix_c HB12 = M_c.Dense(n, n);
             Matrix_c HB21 = M_c.Dense(n, n);
             for (int t = 0; t < (n - 1); t++)
@@ -579,7 +577,7 @@ namespace MTLTestApp
                 HB21[t, t + 1] = 1.0;
             }
             Matrix_c HB22 = -1.0 * M_c.DenseIdentity(n);
-            HB22[n - 1, n - 1] = Rl; //Impedance to ground
+            HB22[n - 1, n - 1] = wdg.Rl; //Impedance to ground
             Matrix_c HB1 = HB11.Append(HB12);
             Matrix_c HB2 = HB21.Append(HB22);
             Matrix_c HB = HB1.Stack(HB2);
@@ -593,9 +591,9 @@ namespace MTLTestApp
             Matrix_c B2 = HA.ToComplex().Append(HB);
 
             double mu_c = 4 * Math.PI * 1e-7;
-            double sigma_c = 1 / rho_c;
-            Complex eta = Complex.Sqrt(2d * Math.PI * f * mu_c * sigma_c * Complex.ImaginaryOne) * t_cond / 2d;
-            double R_skin = (1 / (sigma_c * h_cond * t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
+            double sigma_c = 1 / wdg.rho_c;
+            Complex eta = Complex.Sqrt(2d * Math.PI * f * mu_c * sigma_c * Complex.ImaginaryOne) * wdg.t_cond / 2d;
+            double R_skin = (1 / (sigma_c * wdg.h_cond * wdg.t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
             Console.WriteLine($"R_skin: {R_skin}");
             var R_f = R + Matrix_d.Build.DenseIdentity(n,n)*R_skin;
 
@@ -651,9 +649,9 @@ namespace MTLTestApp
 
         // Impedances passed here are per unit length
         // C matrix should be in self/mutual form, not Maxwell form
-        public static List<double[]> CalcResponseMTL(List<(double Freq, Matrix_d L_matrix)> L_matrices, Matrix_d C_matrix, Vector_d R_t, Vector_d K_t, Vector_d d_t)
+        public static List<double[]> CalcResponseMTL(List<(double Freq, Matrix_d L_matrix)> L_matrices, Matrix_d C_matrix, Vector_d R_t, Vector_d K_t, Vector_d r_t)
         {
-            int numturns = d_t.Count;
+            int numturns = r_t.Count;
 
             Matrix_d R_array = M_d.Dense(numturns, numturns);
             Matrix_d K_array = M_d.Dense(numturns, numturns);
@@ -666,11 +664,7 @@ namespace MTLTestApp
                 K_array[t, t] = K_t[t];
             }
 
-            // r is vector of turn radii in meters
-            // d (given above) is turn diameters in m
-            var r = d_t / 2d;
-
-            var V_resp = CalcResponse(r, R_array, K_array, L_matrices, C_matrix);
+            var V_resp = CalcResponse(r_t, R_array, K_array, L_matrices, C_matrix);
 
             int num_freq_steps = V_resp.Count;
 
@@ -692,28 +686,6 @@ namespace MTLTestApp
             }
 
             return V_response;
-        }
-
-        private static (double r, double z) GetTurnMidpoint(int n)
-        {
-            double r, z;
-            int disc = (int)Math.Floor((double)n / (double)turns_per_disc);
-            int turn = n % turns_per_disc;
-            //Console.WriteLine($"disc: {disc} turn: {turn}");
-
-            if (disc % 2 == 0)
-            {
-                //out to in
-                r = r_inner + (turns_per_disc - turn) * (t_cond + 2 * t_ins) - (t_cond / 2 + t_ins);
-            }
-            else
-            {
-                //in to out
-                r = r_inner + turn * (t_cond + 2 * t_ins) + (t_cond / 2 + t_ins);
-            }
-            z = dist_wdg_tank_bottom + num_discs * (h_cond + 2 * t_ins) + (num_discs - 1) * h_spacer - (h_cond / 2 + t_ins) - disc * (h_cond + 2 * t_ins + h_spacer);
-            //Console.WriteLine($"disc: {disc} turn: {turn} r: {r} z:{z}");
-            return (r, z);
         }
 
         static void DisplayMatrixAsTable(Matrix<double> matrix)

@@ -55,12 +55,12 @@ namespace TDAP
 
         public GeomArc AddArc(GeomPoint startPt, GeomPoint endPt, double radius, double sweepAngle)
         {
-            GeomArc? arc = Arcs.Find(a => (a.StartPt == startPt && a.EndPt == endPt && a.Radius == radius && a.SweepAngle == sweepAngle) ||
-                                          (a.StartPt == endPt && a.EndPt == startPt && a.Radius == radius && a.SweepAngle == -sweepAngle));
+            GeomArc? arc = Arcs.Find(a => (a.StartPt == startPt && a.EndPt == endPt && a.SweepAngle == sweepAngle));
             if (arc == null)
             {
-                arc = new GeomArc(startPt, endPt, radius, sweepAngle);
+                arc = new GeomArc(startPt, endPt, sweepAngle);
                 Arcs.Add(arc);
+                //AddPoint(arc.Center.x, arc.Center.y);
             }
             return arc;
         }
@@ -104,10 +104,10 @@ namespace TDAP
             var right = AddLine(UR2, LR1);
             var bottom = AddLine(LR2, LL1);
             // add arcs for corners
-            var upper_left = AddArc(UL1, UL2, corner_radius, Math.PI/2d);
-            var upper_right = AddArc(UR1, UR2, corner_radius, Math.PI / 2d);
-            var lower_right = AddArc(LR1, LR2, corner_radius, Math.PI / 2d);
-            var lower_left = AddArc(LL1, LL2, corner_radius, Math.PI / 2d);
+            var upper_left = AddArc(UL1, UL2, corner_radius, -Math.PI/2d);
+            var upper_right = AddArc(UR1, UR2, corner_radius, -Math.PI / 2d);
+            var lower_right = AddArc(LR1, LR2, corner_radius, -Math.PI / 2d);
+            var lower_left = AddArc(LL1, LL2, corner_radius, -Math.PI / 2d);
             // add boundary loop
             var boundary = AddLineLoop(left, upper_left, top, upper_right, right, lower_right, bottom, lower_left);
             return boundary;
@@ -131,21 +131,64 @@ namespace TDAP
             return boundary;
         }
 
-        public (double x, double y) GetBounds()
+        public BoundingBox GetBounds()
         {
+            double minX = double.MaxValue;
+            double minY = double.MaxValue;
             double maxX = double.MinValue;
-            foreach (var pt in Points)
-            {
-                if (pt.x > maxX) maxX = pt.x;
-            }
-
             double maxY = double.MinValue;
-            foreach (var pt in Points)
+
+            //double maxX = double.MinValue;
+
+            //foreach (var pt in Points)
+            //{
+            //    if (pt.x > maxX) maxX = pt.x;
+            //}
+
+            //double maxY = double.MinValue;
+            //foreach (var pt in Points)
+            //{
+            //    if (pt.y > maxY) maxY = pt.y;
+            //}
+
+            foreach (var loop in LineLoops)
             {
-                if (pt.y > maxY) maxY = pt.y;
+                (double loop_minX, double loop_maxX, double loop_minY, double loop_maxY) = loop.GetBoundingBox();
+                // Update bounding box
+                minX = Math.Min(minX, loop_minX);
+                minY = Math.Min(minY, loop_minY);
+                maxX = Math.Max(maxX, loop_maxX);
+                maxY = Math.Max(maxY, loop_maxY);
             }
 
-            return (maxX, maxY);
+            return new BoundingBox(minX, minY, maxX, maxY);
+        }
+    }
+
+    // BoundingBox class for encapsulating bounds
+    public class BoundingBox
+    {
+        public double MinX { get; }
+        public double MinY { get; }
+        public double MaxX { get; }
+        public double MaxY { get; }
+
+        public double Width {  get => MaxX - MinX; }
+        public double Height { get => MaxY - MinY; }
+
+        public GeomPoint Center { get => new GeomPoint((MinX + MaxX) / 2, (MinY + MaxY) / 2); }
+
+        public BoundingBox(double minX, double minY, double maxX, double maxY)
+        {
+            MinX = minX;
+            MinY = minY;
+            MaxX = maxX;
+            MaxY = maxY;
+        }
+
+        public override string ToString()
+        {
+            return $"BoundingBox: MinX={MinX}, MinY={MinY}, MaxX={MaxX}, MaxY={MaxY}";
         }
     }
 }

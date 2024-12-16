@@ -1,11 +1,14 @@
 // Copyright 2023, T. C. Raymond
 // SPDX-License-Identifier: MIT
 
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net;
+using System.Security.Cryptography;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
@@ -87,22 +90,15 @@ namespace TDAP
         {
             var startPt = FindPoint(arc.StartPt);
             var endPt = FindPoint(arc.EndPt);
-            //Calculate center point (TODO: abstract this out)
-            int eps = -1;
-            Vector<double> vecStartToEnd = Vector<double>.Build.Dense(new double[2] { endPt.x - startPt.x, endPt.y - startPt.y });
-            double d = vecStartToEnd.L2Norm();
-            Vector<double> m = Vector<double>.Build.Dense(new double[] { (startPt.x + endPt.x) / 2, (startPt.y + endPt.y) / 2 });
-            Vector<double> n_star = Vector<double>.Build.Dense(new double[] { -(endPt.y - startPt.y) / d, (endPt.x - startPt.x) / d});
-            double h = Math.Sqrt(arc.Radius * arc.Radius - d * d / 4);
-            var c = m + eps * h * n_star;
-            var centerPt = CreateNewPoint(c[0], c[1], 0);
-            if (h == 0)
+            var centerPt = FindPoint(arc.Center);
+            if (startPt == null || endPt == null || centerPt == null) return null;
+            if (arc.SweepAngle >= 0)
             {
-                return FindArc(endPt, centerPt, startPt);
+                return FindArc(startPt, centerPt, endPt);
             }
             else
             {
-                return FindArc(startPt, centerPt, endPt);
+                return FindArc(endPt, centerPt, startPt);
             }
         }
 
@@ -282,32 +278,24 @@ namespace TDAP
             {
                 var startPt = FindPoint(arc.StartPt);
                 var endPt = FindPoint(arc.EndPt);
-                var radius = arc.Radius;
-                var sweepAngle = arc.SweepAngle;
-                if (startPt != null && endPt != null)
+                var centerPt = FindPoint(arc.Center);
+                if (centerPt is null)
                 {
-                    int eps = -1;
-                    //Need to calculate the center point from start, end, radius, sweep angle
-                    Vector<double> vecStartToEnd = Vector<double>.Build.Dense(new double[2]{ endPt.x - startPt.x, endPt.y - startPt.y });
-                    double d = vecStartToEnd.L2Norm();
-                    Vector<double> m =Vector<double>.Build.Dense(new double[] { (startPt.x + endPt.x) / 2, (startPt.y + endPt.y) / 2 });
-                    Vector<double> n_star = Vector<double>.Build.Dense(new double[] { -(endPt.y - startPt.y) / d, (endPt.x - startPt.x) / d });
-                    double h = Math.Sqrt(radius * radius - d * d / 4);
-                    var c = m + eps * h * n_star;
-                    var centerPt = CreateNewPoint(c[0], c[1], 0, -9999, startPt.lc);
-                    GmshArc new_arc;
-                    if (h == 0)
-                    {
-                        new_arc = CreateNewArc(endPt, centerPt, startPt);
-                    }
-                    else
-                    {
-                        new_arc = CreateNewArc(startPt, centerPt, endPt);
-                    }
-                    if (arc.AttribID > 0)
-                    {
-                        physical_curves.Add(new GmshPhysicalCurve(new List<GmshCurvilinearEntity>(new GmshCurvilinearEntity[1] { new_arc }), arc.AttribID));
-                    }
+                    centerPt = CreateNewPoint(arc.Center.x, arc.Center.y, 0);
+                }
+
+                GmshArc new_arc;
+                if (arc.SweepAngle >= 0)
+                {
+                    new_arc = CreateNewArc(startPt, centerPt, endPt);
+                }
+                else
+                {
+                    new_arc = CreateNewArc(endPt, centerPt, startPt);
+                }
+                if (arc.AttribID > 0)
+                {
+                    physical_curves.Add(new GmshPhysicalCurve(new List<GmshCurvilinearEntity>(new GmshCurvilinearEntity[1] { new_arc }), arc.AttribID));
                 }
             }
 
@@ -473,6 +461,18 @@ namespace TDAP
             sw.WriteLine("Point ({0}) = {{{1}, {2}, {3}, {4}}};", ID, x, y, z, lc);
         }
 
+        public bool Equals(GmshPoint otherPt)
+        {
+            if (x.AlmostEqual(otherPt.x) && y.AlmostEqual(otherPt.y))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
     }
 
     public abstract class GmshCurvilinearEntity 
@@ -534,7 +534,7 @@ namespace TDAP
                 }else{
                     firstSeg = false;
                 }
-                sw.Write("{0}", seg.ID * orientations[(i + segments.Count - 1) % segments.Count]);
+                sw.Write("{0}", seg.ID * orientations[i]);
                 i++;
             }
             sw.WriteLine("};");
@@ -572,6 +572,155 @@ namespace TDAP
         }
 
         private List<int> DetermineLineSegmentOrientations()
+        {
+            int n = segments.Count;
+            List<int> orientations = new List<int>();
+
+            //// This function sorts the edges in an edge loop; if reorient is set, it
+            //// reorients the edges (and creates reversed edges if necessary). The routine
+            //// also detects subloops if reorient is not set; this is useful for writing
+            //// general scriptable surface generation in complex cases.
+            //GmshCurvilinearEntity c, c0, c1, c2;
+
+            //var temp = new List<GmshCurvilinearEntity>(n);
+
+            //for (int i = 0; i < n; i++)
+            //{
+            //    int _j;
+            //    List_Read(edges, i, &j);
+            //    if ((c = FindCurve(j)))
+            //    {
+            //        temp.Add(c);
+            //        if (c->Typ == MSH_SEGM_DISCRETE)
+            //        {
+            //            Msg::Debug("Aborting curve loop sort for discrete curve: "
+            //                       "let's hope you know what you're doing ;-)");
+            //            return true;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Msg::Debug("Unknown curve %d, aborting curve loop sort: "
+              
+            //                   "let's hope you know what you're doing ;-)",
+            //                   j);
+            //        return true;
+            //    }
+            //}
+            //bool reorient = true;
+            //var edges = new List<GmshCurvilinearEntity>();
+
+            //if (temp.Count == 0) return true;
+
+            //bool ok = true;
+            //int j = 0, k = 0;
+            //c0 = c1 = temp[0];
+            //edges.Add(c1);
+            ////List_PSuppress(temp, 0);
+            //while (edges.Count < n)
+            //{
+            //    for (int i = 0; i < temp.Count; i++)
+            //    {
+            //        c2 = temp[i];
+            //        if (reorient && c1.EndPt == c2.EndPt)
+            //        {
+            //            //Flip c2
+            //            Curve* c2R = FindCurve(-c2->Num);
+            //            if (!c2R)
+            //            {
+            //                Msg::Debug("Creating reversed curve -%d", -c2->Num);
+            //                c2R = CreateReversedCurve(c2);
+            //            }
+            //            c2 = c2R;
+            //        }
+            //        if (c1.EndPt == c2.StartPt)
+            //        {
+            //            edges.Add(c2);
+            //            c1 = c2;
+            //            if (c2.EndPt == c0.StartPt)
+            //            {
+            //                if (List_Nbr(temp))
+            //                {
+            //                    //Msg::Info("Starting subloop %d in curve loop %d (are you sure about this?)",++k, num);
+            //                    c0 = c1 = temp[0];
+            //                    edges.Add(c1);
+            //                }
+            //            }
+            //            break;
+            //        }
+            //    }
+            //    if (j++ > n)
+            //    {
+            //        Msg::Error("Curve loop %d is wrong", num);
+            //        ok = false;
+            //        break;
+            //    }
+            //}
+            
+
+            //orientations.Add(1); //First segment will be arbitrarily 1
+            int currDirection = 1;
+            var currSegment = segments[0];
+            var nextSegment = segments[1];
+            // First segment, determine direction
+            if (currSegment.StartPt.Equals(nextSegment.StartPt) || currSegment.StartPt.Equals(nextSegment.EndPt))
+            {
+                currDirection = -1;  
+            }
+            else if (currSegment.EndPt.Equals(nextSegment.StartPt) || currSegment.EndPt.Equals(nextSegment.EndPt))
+            {
+                currDirection = 1;
+            }
+            else
+            {
+                throw new Exception("Line Loop first segment is not connected to second segment.");
+            }
+            orientations.Add(currDirection);
+
+            for (int i = 0; i < n - 1; i++)
+            {
+                currSegment = segments[i];
+                nextSegment = segments[i + 1];
+
+                if (currDirection > 0) //Proceed in current direction
+                {
+                    if (currSegment.EndPt.Equals(nextSegment.StartPt))
+                    {
+                        orientations.Add(1);
+                    }
+                    else if (currSegment.EndPt.Equals(nextSegment.EndPt))
+                    {
+                        orientations.Add(-1);
+                    }
+                    else
+                    {
+                        throw new Exception("Line Loop segments do not appear to be continuous.");
+                    }
+                }
+                else //currSegment is flipped
+                {
+                    if (currSegment.StartPt.Equals(nextSegment.StartPt))
+                    {
+                        orientations.Add(1);
+                    }
+                    else if (currSegment.StartPt.Equals(nextSegment.EndPt))
+                    {
+                        orientations.Add(-1);
+                    }
+                    else
+                    {
+                        throw new Exception("Line Loop segments do not appear to be continuous.");
+                    }
+                }
+                currDirection = orientations[i+1];
+            }
+            //orientations.Add(1);
+            
+
+            return orientations;
+        }
+
+        private List<int> DetermineLineSegmentOrientationsOld()
         {
             int n = segments.Count;
             List<int> orientations = new List<int>();

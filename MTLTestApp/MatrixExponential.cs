@@ -24,7 +24,7 @@ namespace MatrixExponential
                 // unfortunately m is not diagonal
                 // so let's try to diagonalize it
                 bool diagonalization_failed = !m.IsSymmetric();
-                if (!diagonalization_failed)
+                if (!diagonalization_failed) // if m is symmetric
                 {
                     try
                     {
@@ -38,7 +38,7 @@ namespace MatrixExponential
                     }
                 }
 
-                if (diagonalization_failed)
+                if (diagonalization_failed) // get here if m is not symmetric or if diagnolization fails
                 {
                     // last hope: Padé approximation method
                     // details could be found in 

@@ -15,6 +15,7 @@ using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using TDAP;
 
 namespace MTLTestUI.Views
@@ -44,13 +45,13 @@ namespace MTLTestUI.Views
         private Point mouseStart;
         private Point panOffset = new Point(0, 0);
         private double panSpeed = 1;
-        
-        private List<(Point, Point)> _edges;
-        private List<SKPoint> _points;
+
+        private SKPath _geometry;
+        private List<SKPoint> _meshpoints;
 
         protected void OnWheel(object? sender, PointerWheelEventArgs e) {
             double oldZoom = zoom;
-            zoom = zoom * (1 + 0.1 * e.Delta.Y / Math.Abs(e.Delta.Y));
+            zoom *= (1 + 0.1 * e.Delta.Y / Math.Abs(e.Delta.Y));
             //Adjust Pan Offset for change in zoom to avoid wonky zooming when not centered
             panOffset = panOffset * zoom / oldZoom;
             InvalidateVisual();
@@ -99,6 +100,7 @@ namespace MTLTestUI.Views
             {
                 SetValue(GeometryProperty, value);
                 SetInitialScale();
+                GetGeometry();
             }
         }
 
@@ -108,24 +110,44 @@ namespace MTLTestUI.Views
             set
             {
                 SetValue(MeshProperty, value);
-                GetUniqueEdges();
+                GetMeshPoints();
             }
         }
 
-        private void GetUniqueEdges()
+        private void GetMeshPoints()
         {
-            var rtnList = new List<(Point, Point)>();
-            _points = new List<SKPoint>();
+            _meshpoints = new List<SKPoint>();
             var edges = Mesh.GetUniqueEdges();
             foreach (var edge in edges) 
             {
-                rtnList.Add((new Point(edge.Item1.Node.X, edge.Item1.Node.Y), new Point(edge.Item2.Node.X, edge.Item2.Node.Y)));
                 var _pt = new Point(edge.Item1.Node.X, edge.Item1.Node.Y);
-                _points.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
+                _meshpoints.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
                 var _pt2 = new Point(edge.Item2.Node.X, edge.Item2.Node.Y);
-                _points.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
+                _meshpoints.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
             }
-            _edges = rtnList;
+        }
+
+        private void GetGeometry()
+        {
+            _geometry = new SKPath();
+            foreach (var line in Geometry.Lines)
+            {
+                _geometry.MoveTo((float)line.pt1.x, (float)line.pt1.y);
+                _geometry.LineTo((float)line.pt2.x, (float)line.pt2.y);
+            }
+            foreach (var arc in Geometry.Arcs)
+            {
+                // Calculate angles
+                double startAngle = Math.Atan2(arc.StartPt.y - arc.Center.y, arc.StartPt.x - arc.Center.x) * (180.0 / Math.PI);
+                //double endAngle = Math.Atan2(arc.EndPt.y - arc.Center.y, arc.EndPt.x - arc.Center.x) * (180.0 / Math.PI);
+                double sweepAngle = arc.SweepAngle * (180.0 / Math.PI);
+
+                _geometry.MoveTo((float)arc.StartPt.x, (float)arc.StartPt.y);
+                var center = arc.Center;
+                var radius = (float)arc.Radius;
+                var rect = new SKRect((float)center.x - radius, (float)center.y - radius, (float)center.x + radius, (float)center.y + radius);
+                _geometry.ArcTo(rect, (float)startAngle, (float)sweepAngle, false);
+            }
         }
 
         public void SetInitialScale()
@@ -177,12 +199,11 @@ namespace MTLTestUI.Views
             if (WorldBounds is null) SetInitialScale();
             if (double.IsNaN(Bounds.Height) || double.IsNaN(Bounds.Width)) return;
 
-            if (_edges is null) GetUniqueEdges();
-
-            var pen = new Pen(Brushes.Green, 1, lineCap: PenLineCap.Square);
-            var pen_mesh = new Pen(Brushes.Gray, 1, lineCap: PenLineCap.Square);
+            if (_meshpoints is null) GetMeshPoints();
+            if (_geometry is null) GetGeometry();
+            
             var matrix = GetTransform();
-            drawingContext.Custom(new CustomDrawOp(Bounds, _points, matrix, WorldBounds));
+            drawingContext.Custom(new CustomDrawOp(Bounds, _geometry, _meshpoints, matrix, WorldBounds));
             Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
             
         }
@@ -192,10 +213,11 @@ namespace MTLTestUI.Views
     // All points passed in here will be in screen coordinates
     class CustomDrawOp : ICustomDrawOperation
     {
-        public CustomDrawOp(Rect bounds, List<SKPoint> mesh, SKMatrix transform, BoundingBox world)
+        public CustomDrawOp(Rect bounds, SKPath geometry, List<SKPoint> mesh, SKMatrix transform, BoundingBox world)
         {
             Bounds = bounds;
-            Mesh = mesh.ToArray();
+            Mesh = [.. mesh];
+            Geometry = geometry;
             _transform = transform;
             World = world;
         }
@@ -209,6 +231,8 @@ namespace MTLTestUI.Views
 
         public Rect Bounds { get; }
         public SKPoint[] Mesh { get; }
+        public SKPath Geometry { get; }
+
         private SKMatrix _transform;
         public SKMatrix Transform { get => _transform; }
 
@@ -230,31 +254,29 @@ namespace MTLTestUI.Views
                 using var lease = leaseFeature.Lease();
                 var canvas = lease.SkCanvas;
                 canvas.Save();
-                canvas.Clear(SKColors.Gray);
-                SKRect bounds;
-                canvas.GetLocalClipBounds(out bounds);
-                //canvas.ResetMatrix();
+                canvas.Clear(SKColors.Black);
+
                 canvas.Concat(ref _transform);
-                canvas.GetLocalClipBounds(out bounds);
-                using SKPaint p1 = new() { Color = SKColors.Green, IsAntialias = true };
+                
+                using SKPaint p1 = new() { Color = SKColors.Green, IsAntialias = true, StrokeWidth = 2f/_transform.ScaleX, Style = SKPaintStyle.Stroke };
                 using SKPaint p2 = new() { Color = SKColors.White, IsAntialias = true };
 
-                canvas.DrawRect((float)World.MinX, (float)World.MinY, (float)World.Width, (float)World.Height, p1);
-
-                if (Mesh != null)
-                {             
-                    //SKMatrix matrix = SKMatrix.CreateScale(Scale,-Scale);
-                    //canvas.SetMatrix(matrix);
-                    //foreach (var edge in Mesh)
-                    //{
-                    //    canvas.DrawLine(new SKPoint((float)edge.Item1.Node.X, (float)edge.Item1.Node.Y), new SKPoint((float)edge.Item2.Node.X, (float)edge.Item2.Node.Y), p2);
-                    //}
-                    for (int i = 0; i < Mesh.Length; i=i+2)
+                if (Mesh is not null)
+                {
+                    for (int i = 0; i < Mesh.Length; i += 2)
                     {
                         canvas.DrawLine(Mesh[i], Mesh[i+1], p2);
                     }
                 }
-                
+
+                if (Geometry is not null)
+                {
+                    canvas.DrawPath(Geometry, p1);
+                    //SKRect pathbounds;
+                    //Geometry.GetBounds(out pathbounds);
+                    //canvas.DrawRect(pathbounds, p1);
+                }
+
                 canvas.Restore();
             }
         }

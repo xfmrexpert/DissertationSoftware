@@ -21,7 +21,7 @@ namespace MTLTestUI
 {
     public class MainModel
     {
-        public Winding wdg = new Winding();
+        public Winding wdg;
         public Mesh mesh = new Mesh();
 
         public void CalcMesh(double meshscale = 1.0, int meshorder = 1)

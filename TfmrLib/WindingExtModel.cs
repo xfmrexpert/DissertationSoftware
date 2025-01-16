@@ -86,7 +86,7 @@ namespace TfmrLib
             foreach (var file in filesWithValues)
             {
                 Console.WriteLine($"{file.FileName} - {file.NumericValue}");
-                L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(file.FileName, false, ",", false)));
+                L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(DirectoryPath + "/" + file.FileName, false, ",", false)));
             }
         }
 

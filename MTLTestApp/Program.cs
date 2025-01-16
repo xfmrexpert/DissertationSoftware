@@ -12,6 +12,8 @@ using System.Text;
 using Microsoft.Data.Analysis;
 using TfmrLib;
 using System.Collections.Generic;
+using System.Reflection.Emit;
+using System.IO;
 
 namespace MTLTestApp
 {
@@ -29,16 +31,18 @@ namespace MTLTestApp
 
         // static Winding wdg = new Winding();
 
-        static double min_freq = 10e3;
-        static double max_freq = 100e3;
+        static double min_freq = 100e3;
+        static double max_freq = 1e6;
         static int num_freqs = 100;
 
         static int num_turns;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
 
             Console.WriteLine("Hello, World!");
+
+            //TestPlots();
 
             string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
 
@@ -49,24 +53,34 @@ namespace MTLTestApp
 
             num_turns = wdgAnalytic.num_turns;
 
+            var tasks = new List<Task>();
+
             var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
             var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
-
             var lumpedModel = new LumpedModel(wdgGetDP, min_freq, max_freq, num_freqs);
 
-            var V_response_getdp = getDPModel.CalcResponse();
-            var V_response_analytic = analyticModel.CalcResponse();
-            var V_lumped = lumpedModel.CalcResponse();
-
-            ShowPlots(measuredData, V_response_getdp, V_response_analytic);
+            List<double[]> V_response_getdp = null;
+            List<double[]> V_response_analytic = null;
+            List<double[]> V_response_lumped = null;
+            tasks.Add(Task.Run(() => { 
+                V_response_getdp = getDPModel.CalcResponse(); 
+            }));
+            tasks.Add(Task.Run(() => {
+                V_response_analytic = analyticModel.CalcResponse();
+            }));
+            tasks.Add(Task.Run(() => {
+                V_response_lumped = lumpedModel.CalcResponse();
+            }));
+            await Task.WhenAll(tasks);
+            ShowPlots(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
 
             
         }
 
-        public static void ShowPlots(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic)
+        public static void ShowPlots(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic, List<double[]> V_response_lumped)
         {
             //var freqs = Generate.LinearSpaced(num_freqs, min_freq, max_freq);
-            var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
+            var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
             LinearAxis xAxis = new LinearAxis();
             xAxis.SetValue("title", "xAxis");
@@ -108,19 +122,17 @@ namespace MTLTestApp
                 //trace2.SetValue("mode", "lines");
                 //trace2.SetValue("name", $"Turn {t + 1}");
 
-                //var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Color.fromString("Green")).WithLayout(layout);
+                var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Color.fromString("Green")).WithLayout(layout);
 
                 var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Color.fromString("Green")).WithLayout(layout);
 
                 i++;
 
-                //FSharpList<Plotly.NET.Trace> traces = ListModule.OfSeq<Plotly.NET.Trace>([trace, trace2]);
-
-                charts.Add(Chart.Combine([chart1, chart2, chart3]).WithTitle($"Turn {t}"));
+                charts.Add(Plotly.NET.Chart.Combine([chart1, chart2, chart3, chart4]).WithTitle($"Turn {t}"));
                 //charts.Add(chart2);
             }
 
-            var subplotGrid = Chart.Grid<IEnumerable<string>, IEnumerable <GenericChart>> (3, 2).Invoke(charts).WithSize(1600, 1200);
+            var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable <GenericChart>> (3, 2).Invoke(charts).WithSize(1600, 1200);
 
             // Show the combined chart with subplots
             subplotGrid.Show();
@@ -204,4 +216,5 @@ namespace MTLTestApp
             return df;
         }
     }
+
 }

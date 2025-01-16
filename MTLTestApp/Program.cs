@@ -14,6 +14,7 @@ using TfmrLib;
 using System.Collections.Generic;
 using System.Reflection.Emit;
 using System.IO;
+using ShellProgressBar;
 
 namespace MTLTestApp
 {
@@ -40,13 +41,13 @@ namespace MTLTestApp
         static async Task Main(string[] args)
         {
 
-            Console.WriteLine("Hello, World!");
+            Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
             //TestPlots();
 
-            string directoryPath = @"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
+            string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
 
-            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\TDAP2\MTLTestApp\bin\Debug\net8.0\26DEC2023_Rough_NoCore");
+            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\26DEC2023_Rough_NoCore");
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
@@ -62,20 +63,90 @@ namespace MTLTestApp
             List<double[]> V_response_getdp = null;
             List<double[]> V_response_analytic = null;
             List<double[]> V_response_lumped = null;
-            tasks.Add(Task.Run(() => { 
-                V_response_getdp = getDPModel.CalcResponse(); 
-            }));
-            tasks.Add(Task.Run(() => {
-                V_response_analytic = analyticModel.CalcResponse();
-            }));
-            tasks.Add(Task.Run(() => {
-                V_response_lumped = lumpedModel.CalcResponse();
-            }));
-            await Task.WhenAll(tasks);
-            ShowPlots(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
 
-            
+            // Configure the main progress bar options
+            var mainProgressBarOptions = new ProgressBarOptions
+            {
+                ForegroundColor = ConsoleColor.Yellow,
+                BackgroundColor = ConsoleColor.DarkGray,
+                ProgressCharacter = '─',
+                CollapseWhenFinished = false
+            };
+
+            // Configure child progress bar options
+            var childProgressBarOptions = new ProgressBarOptions
+            {
+                ForegroundColor = ConsoleColor.Cyan,
+                BackgroundColor = ConsoleColor.DarkGray,
+                ProgressCharacter = '─',
+                CollapseWhenFinished = false,
+                DisplayTimeInRealTime = false // Optional: Prevents updating time every tick
+            };
+
+            // Initialize the main progress bar
+            using (var mainProgress = new ProgressBar(100, "Overall Progress", mainProgressBarOptions))
+            {
+                // Spawn child progress bars for each task
+                var getdpBar = mainProgress.Spawn(100, "GetDPModel", childProgressBarOptions);
+                var analyticBar = mainProgress.Spawn(100, "AnalyticModel", childProgressBarOptions);
+                var lumpedBar = mainProgress.Spawn(100, "LumpedModel", childProgressBarOptions);
+
+                // Create IProgress<int> instances linked to each child progress bar
+                IProgress<int> progressGetDP = new Progress<int>(percent =>
+                {
+                    getdpBar.Tick(percent);
+                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
+                });
+
+                IProgress<int> progressAnalytic = new Progress<int>(percent =>
+                {
+                    analyticBar.Tick(percent);
+                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
+                });
+
+                IProgress<int> progressLumped = new Progress<int>(percent =>
+                {
+                    lumpedBar.Tick(percent);
+                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
+                });
+
+                // Start the tasks
+                tasks.Add(Task.Run(() =>
+                {
+                    V_response_getdp = getDPModel.CalcResponse(progressGetDP);
+                    getdpBar.Tick(100); // Ensure completion
+                }));
+
+                tasks.Add(Task.Run(() =>
+                {
+                    V_response_analytic = analyticModel.CalcResponse(progressAnalytic);
+                    analyticBar.Tick(100); // Ensure completion
+                }));
+
+                tasks.Add(Task.Run(() =>
+                {
+                    V_response_lumped = lumpedModel.CalcResponse(progressLumped);
+                    lumpedBar.Tick(100); // Ensure completion
+                }));
+
+                // Await all tasks to complete
+                await Task.WhenAll(tasks);
+
+                // Optionally, mark the main progress as complete
+                mainProgress.Tick(100);
+
+            }
+                
+            ShowPlots(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
         }
+
+        static private void UpdateMainProgress(ProgressBar mainProgress, ChildProgressBar getdpBar, ChildProgressBar analyticBar, ChildProgressBar lumpedBar)
+        {
+            // Calculate average progress
+            double average = (getdpBar.CurrentTick + analyticBar.CurrentTick + lumpedBar.CurrentTick) / 3.0;
+            mainProgress.Tick((int)average);
+        }
+
 
         public static void ShowPlots(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic, List<double[]> V_response_lumped)
         {

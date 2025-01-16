@@ -43,7 +43,7 @@ namespace TfmrLib
 
         // Impedances passed here are per unit length
         // C matrix should be in self/mutual form, not Maxwell form
-        public List<double[]> CalcResponse()
+        public List<double[]> CalcResponse(IProgress<int> progress = null)
         {
             Initialize();
 
@@ -52,14 +52,17 @@ namespace TfmrLib
 
             List<Vector_c> V_turn = [];
             List<Complex> Y = [];
-
+            int totalSteps = freqs.Count();
+            int i = 0;
             foreach (var f in freqs)
             {
-                Console.WriteLine($"Calculating at {f / 1e6}MHz");
-                var vi_vec = CalcResponseAtFreq(f);
-                var gain_at_freq = vi_vec / vi_vec[0];
+                ++i;
+                //Console.WriteLine($"Calculating at {f / 1e6}MHz");
+                var gain_at_freq = CalcResponseAtFreq(f);
+                //var gain_at_freq = vi_vec / vi_vec[0];
                 V_turn.Add(gain_at_freq); //[n: 2 * n]
                 //Y.Add(vi_vec[2 * Wdg.num_turns]); //Original code took absolute val of vi_vec[2*n]
+                progress?.Report((int)((i + 1) / (double)totalSteps * 100));
             }
 
             var V_response = new List<double[]>();

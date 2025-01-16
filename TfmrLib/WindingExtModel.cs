@@ -85,7 +85,7 @@ namespace TfmrLib
             // Output the sorted filenames and their values
             foreach (var file in filesWithValues)
             {
-                Console.WriteLine($"{file.FileName} - {file.NumericValue}");
+                //Console.WriteLine($"{file.FileName} - {file.NumericValue}");
                 L_matrices.Add((file.NumericValue, DelimitedReader.Read<double>(DirectoryPath + "/" + file.FileName, false, ",", false)));
             }
         }

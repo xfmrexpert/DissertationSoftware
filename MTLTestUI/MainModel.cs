@@ -289,7 +289,7 @@ namespace MTLTestUI
             for (int t = 0; t < wdg.num_turns; t++)
             {
                 C_getdp.SetRow(t, CalcCapacitance(t));
-                Console.WriteLine($"Self capacitance for turn {t}: {C_getdp[t, t]}");
+                //Console.WriteLine($"Self capacitance for turn {t}: {C_getdp[t, t]}");
             }//);
 
 
@@ -316,7 +316,7 @@ namespace MTLTestUI
             //        Console.WriteLine($"Mutual capacitance between turn {t1} & {t2}: {C_getdp[t1, t2]}");
             //    });
             //});
-            Console.Write((C_getdp / 1e-12).ToMatrixString());
+            //Console.Write((C_getdp / 1e-12).ToMatrixString());
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
         }
 
@@ -491,7 +491,7 @@ namespace MTLTestUI
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
-            Console.WriteLine($"Frequency: {freq.ToString("0.##E0")}");
+            //Console.WriteLine($"Frequency: {freq.ToString("0.##E0")}");
             //CalcMesh();
 
             //Parallel.For(0, n_turns, t =>
@@ -499,7 +499,7 @@ namespace MTLTestUI
             {
                 L_getdp.SetRow(t, CalcInductance(t, -1, freq, order));
                 (double r, double z) = wdg.GetTurnMidpoint(t);
-                Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
+                //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
             //);
 
@@ -529,7 +529,7 @@ namespace MTLTestUI
                 }
             }
 
-            Console.Write((L_getdp/1e-9).ToMatrixString());
+            //Console.Write((L_getdp/1e-9).ToMatrixString());
 
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }

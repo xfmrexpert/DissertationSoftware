@@ -24,9 +24,12 @@
     <PackageReference Include="MathNet.Numerics.Data.Text" Version="5.0.0" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="0.22.0" />
     <PackageReference Include="Plotly.NET" Version="5.1.0" />
+    <PackageReference Include="ShellProgressBar" Version="5.2.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\GeomLibrary\GeometryLib\GeometryLib.csproj" />
+    <ProjectReference Include="..\GeomLibrary\MeshLib\MeshLib.csproj" />
     <ProjectReference Include="..\TfmrLib\TfmrLib.csproj" />
   </ItemGroup>
 

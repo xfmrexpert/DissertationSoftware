@@ -48,7 +48,7 @@ namespace TfmrLib
                 int n_bel;
                 double dist_to_ground = 10;
                 double k = 1.0 / 3.0;
-                Console.WriteLine($"Disc {i}");
+                //Console.WriteLine($"Disc {i}");
                 // For now, let's calculate four capacitances for each turn
                 // If last disc (section), above is prev disc, below is tank
                 // TODO: How to handle segments above and below
@@ -59,7 +59,7 @@ namespace TfmrLib
                     n_abv = i - 1;
                     C_bel = eps_0 * eps_oil * t_cond / dist_to_ground;
                     n_bel = -1;
-                    Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
+                    //Console.WriteLine($"Last (bottom) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else if (i == 0) // If first disc, above is tank, below is next disc
                 {
@@ -68,7 +68,7 @@ namespace TfmrLib
                     C_bel = eps_0 * eps_oil * t_cond / (h_spacer + 2 * t_ins);
                     C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
                     n_bel = i + 1;
-                    Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
+                    //Console.WriteLine($"First (top) Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
                 else
                 {
@@ -76,7 +76,7 @@ namespace TfmrLib
                     C_abv = C_bel = eps_0 * (k / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_oil) + (1 - k) / (2 * t_ins / eps_paper + (2 * t_ins + h_spacer) / eps_paper)) * (t_cond + 2 * t_ins);
                     n_abv = i - 1;
                     n_bel = i + 1;
-                    Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
+                    //Console.WriteLine($"Middle Disc: C_abv={C_abv} C_bel={C_bel}");
                 }
 
                 for (int j = 0; j < turns_per_disc; j++)
@@ -158,7 +158,7 @@ namespace TfmrLib
                     }
 
                     int n = i * turns_per_disc + j;
-                    Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
+                    //Console.WriteLine($"n: {n} n_abv: {n_abv} n_bel: {n_bel} n_lt: {n_lt} n_rt: {n_rt}");
 
                     // Assemble C_abv, C_bel, C_lt, C_rt into C_seg
                     C[n, n] = C_abv + C_bel + C_lt + C_rt;
@@ -200,7 +200,7 @@ namespace TfmrLib
             double delta = Math.Sqrt(2 / (omega * mu_0 * mu_r * sigma));  // Skin depth
             double L_int = L_int_low * Math.Min(1, delta / (GMD / 2));  // Smooth transition
             double L_s = L_int + mu_0 * r_avg * (Math.Log(8 * r_avg / GMD) - 2);
-            Console.WriteLine($"r_avg: {r_avg} GMD: {GMD} L_s: {L_s / 1e-9} L_s/l: {L_s / (2 * Math.PI * r_avg) / 1e-9}");
+            //Console.WriteLine($"r_avg: {r_avg} GMD: {GMD} L_s: {L_s / 1e-9} L_s/l: {L_s / (2 * Math.PI * r_avg) / 1e-9}");
             return L_s;
         }
 

@@ -204,7 +204,7 @@ namespace TfmrLib
             double sigma_c = 1 / rho_c;
             Complex eta = Complex.Sqrt(2d * Math.PI * f * mu_c * sigma_c * Complex.ImaginaryOne) * t_cond / 2d;
             double R_skin = (1 / (sigma_c * h_cond * t_cond) * eta * Complex.Cosh(eta) / Complex.Sinh(eta)).Real;
-            Console.WriteLine($"R_skin: {R_skin}");
+            //Console.WriteLine($"R_skin: {R_skin}");
 
             var R_f = R + LinAlg.Matrix<double>.Build.DenseIdentity(num_turns, num_turns) * R_skin;
             return R_f;

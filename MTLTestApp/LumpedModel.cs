@@ -20,7 +20,7 @@ namespace TfmrLib
     {
         public Matrix_d C { get; set; }
         public Matrix_d Q { get; set; }
-        public Vector_d d_t { get; set; }
+        public Vector_d d_t { get; set; } // turn diameters
 
         public LumpedModel(Winding wdg) : base(wdg) { }
         public LumpedModel(Winding wdg, double minFreq, double maxFreq, int numSteps) : base(wdg, minFreq, maxFreq, numSteps) { }
@@ -90,7 +90,7 @@ namespace TfmrLib
 
             Matrix_c Z = M_c.Dense(0, 0);
 
-            Console.WriteLine($"Calculating at {f / 1e6}MHz");
+            //Console.WriteLine($"Calculating at {f / 1e6}MHz");
             //Y = 1j * 2 * math.pi * f * C + Q.transpose() @np.linalg.inv(R + 1j * 2 * math.pi * f * L)@Q
             var Y = Complex.ImaginaryOne * 2 * Math.PI * f * C.ToComplex() + Q.ToComplex().Transpose() * (R.ToComplex() + Complex.ImaginaryOne * 2 * Math.PI * f * L.ToComplex()).Inverse() * Q.ToComplex();
             if (!Y.ConditionNumber().IsInfinity())
@@ -104,12 +104,13 @@ namespace TfmrLib
             }
 
             // TODO: Need to verify return values
+            // UPDATE: THEM IS F'ING WRONG, NEED TO _FIX_ RETURN VALUES
             
             //Z_term.Add(Z[0, 0].Magnitude);
             
             for (int t = 0; t < Wdg.num_turns - 1; t++)
             {
-                V_Response_AtF[t] = 20 * Math.Log10(Z[0, t + 1].Magnitude / Z[0, 0].Magnitude);
+                V_Response_AtF[t] = Z[0, t + 1] / Z[0, 0];
             }
 
             return V_Response_AtF;

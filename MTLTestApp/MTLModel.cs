@@ -66,6 +66,7 @@ namespace TfmrLib
             return HB;
         }
 
+        // Return value should be complex vector of voltage response at each turn
         public override Vector_c CalcResponseAtFreq(double f)
         {
             Matrix_c HB = CalcHB(f);
@@ -91,9 +92,15 @@ namespace TfmrLib
             Matrix_c B12 = Phi2.Append(M_c.Dense(Wdg.num_turns, Wdg.num_turns).Stack(-1.0 * M_c.DenseIdentity(Wdg.num_turns)));
             Matrix_c B1 = B11.Append(B12);
             Matrix_c B = B1.Stack(B2);
+            // v = [ V_turn_start ]
+            //     [ V_turn_end   ]
+            //     [ I_turn_start ]
+            //     [ I_turn_end   ]
             Vector_c v = V_c.Dense(4 * Wdg.num_turns);
             v[2 * Wdg.num_turns] = 1.0; // Set applied voltage
-            return B.Solve(v);
+            var x = B.Solve(v);
+            var turn_end_voltages = x.SubVector(Wdg.num_turns, 2*Wdg.num_turns); // This should be grabbed the voltages at the _end_ of each turn
+            return turn_end_voltages / x[0]; //Divide by terminal voltage to get gain
         }
 
         protected override void Initialize()

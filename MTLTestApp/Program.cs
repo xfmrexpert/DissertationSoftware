@@ -1,20 +1,11 @@
-﻿using LinAlg = MathNet.Numerics.LinearAlgebra;
-using Plotly.NET.LayoutObjects;
+﻿using Plotly.NET.LayoutObjects;
 using Plotly.NET;
-using System.Numerics;
-using TDAP;
-using System;
-using MathNet.Numerics;
-using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Data.Analysis;
 using TfmrLib;
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using System.IO;
-using ShellProgressBar;
+using Spectre.Console;
 
 namespace MTLTestApp
 {
@@ -64,87 +55,70 @@ namespace MTLTestApp
             List<double[]> V_response_analytic = null;
             List<double[]> V_response_lumped = null;
 
-            // Configure the main progress bar options
-            var mainProgressBarOptions = new ProgressBarOptions
-            {
-                ForegroundColor = ConsoleColor.Yellow,
-                BackgroundColor = ConsoleColor.DarkGray,
-                ProgressCharacter = '─',
-                CollapseWhenFinished = false
-            };
-
-            // Configure child progress bar options
-            var childProgressBarOptions = new ProgressBarOptions
-            {
-                ForegroundColor = ConsoleColor.Cyan,
-                BackgroundColor = ConsoleColor.DarkGray,
-                ProgressCharacter = '─',
-                CollapseWhenFinished = false,
-                DisplayTimeInRealTime = false // Optional: Prevents updating time every tick
-            };
-
-            // Initialize the main progress bar
-            using (var mainProgress = new ProgressBar(100, "Overall Progress", mainProgressBarOptions))
-            {
-                // Spawn child progress bars for each task
-                var getdpBar = mainProgress.Spawn(100, "GetDPModel", childProgressBarOptions);
-                var analyticBar = mainProgress.Spawn(100, "AnalyticModel", childProgressBarOptions);
-                var lumpedBar = mainProgress.Spawn(100, "LumpedModel", childProgressBarOptions);
-
-                // Create IProgress<int> instances linked to each child progress bar
-                IProgress<int> progressGetDP = new Progress<int>(percent =>
+            // Use Spectre.Console's Progress
+            await AnsiConsole.Progress()
+                .AutoClear(false) // Keep the progress bars after completion
+                .HideCompleted(false)
+                .Columns(new ProgressColumn[]
                 {
-                    getdpBar.Tick(percent);
-                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
+                    new TaskDescriptionColumn(),    // Task description
+                    new ProgressBarColumn(),        // Progress bar
+                    new PercentageColumn(),         // Percentage completed
+                    new RemainingTimeColumn(),      // Remaining time
+                    //new SpinnerColumn(),            // Spinner
+                })
+                .StartAsync(async ctx =>
+                {
+                    // Define tasks in Spectre.Console's progress context
+                    var getdpTask = ctx.AddTask("MTL Model w/ GetDP LCs", maxValue: 100);
+                    var analyticTask = ctx.AddTask("MTL Model w/ Analytic LCs", maxValue: 100);
+                    var lumpedTask = ctx.AddTask("Lumped Model w/ GetDP LCs", maxValue: 100);
+
+                    // Create IProgress<int> instances linked to Spectre.Console tasks
+                    var progressGetDP = new Progress<int>(percent =>
+                    {
+                        getdpTask.Value = percent;
+                    });
+
+                    var progressAnalytic = new Progress<int>(percent =>
+                    {
+                        analyticTask.Value = percent;
+                    });
+
+                    var progressLumped = new Progress<int>(percent =>
+                    {
+                        lumpedTask.Value = percent;
+                    });
+
+                    // Start the tasks
+                    var task1 = Task.Run(() =>
+                    {
+                        V_response_getdp = getDPModel.CalcResponse(progressGetDP);
+                        getdpTask.Value = 100; // Ensure completion
+                    });
+
+                    var task2 = Task.Run(() =>
+                    {
+                        V_response_analytic = analyticModel.CalcResponse(progressAnalytic);
+                        analyticTask.Value = 100; // Ensure completion
+                    });
+
+                    var task3 = Task.Run(() =>
+                    {
+                        V_response_lumped = lumpedModel.CalcResponse(progressLumped);
+                        lumpedTask.Value = 100; // Ensure completion
+                    });
+
+                    tasks.Add(task1);
+                    tasks.Add(task2);
+                    tasks.Add(task3);
+
+                    // Wait for all tasks to complete
+                    await Task.WhenAll(tasks);
                 });
 
-                IProgress<int> progressAnalytic = new Progress<int>(percent =>
-                {
-                    analyticBar.Tick(percent);
-                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
-                });
-
-                IProgress<int> progressLumped = new Progress<int>(percent =>
-                {
-                    lumpedBar.Tick(percent);
-                    UpdateMainProgress(mainProgress, getdpBar, analyticBar, lumpedBar);
-                });
-
-                // Start the tasks
-                tasks.Add(Task.Run(() =>
-                {
-                    V_response_getdp = getDPModel.CalcResponse(progressGetDP);
-                    getdpBar.Tick(100); // Ensure completion
-                }));
-
-                tasks.Add(Task.Run(() =>
-                {
-                    V_response_analytic = analyticModel.CalcResponse(progressAnalytic);
-                    analyticBar.Tick(100); // Ensure completion
-                }));
-
-                tasks.Add(Task.Run(() =>
-                {
-                    V_response_lumped = lumpedModel.CalcResponse(progressLumped);
-                    lumpedBar.Tick(100); // Ensure completion
-                }));
-
-                // Await all tasks to complete
-                await Task.WhenAll(tasks);
-
-                // Optionally, mark the main progress as complete
-                mainProgress.Tick(100);
-
-            }
-                
             ShowPlots(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
-        }
-
-        static private void UpdateMainProgress(ProgressBar mainProgress, ChildProgressBar getdpBar, ChildProgressBar analyticBar, ChildProgressBar lumpedBar)
-        {
-            // Calculate average progress
-            double average = (getdpBar.CurrentTick + analyticBar.CurrentTick + lumpedBar.CurrentTick) / 3.0;
-            mainProgress.Tick((int)average);
+            AnsiConsole.MarkupLine("[bold green]All tasks completed successfully![/]");
         }
 
 
@@ -164,7 +138,7 @@ namespace MTLTestApp
             yAxis.SetValue("showgrid", false);
             yAxis.SetValue("showline", true);
 
-            Layout layout = new Layout();
+            Plotly.NET.Layout layout = new Plotly.NET.Layout();
             layout.SetValue("xaxis", xAxis);
             layout.SetValue("yaxis", yAxis);
             layout.SetValue("showlegend", true);
@@ -179,7 +153,7 @@ namespace MTLTestApp
                 //Console.WriteLine($"Turn: {t + 1}\tr: {wdg.GetTurnMidpoint(t + 1).r}\tz: {wdg.GetTurnMidpoint(t + 1).z}");
 
                 //var traces = new List<Plotly.NET.Trace>();
-                var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Color.fromString("Red")).WithLayout(layout);
+                var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
                 //trace.SetValue("x", freqs);
                 //trace.SetValue("y", V_response_analytic[t]);
                 //trace.SetValue("mode", "lines");
@@ -187,15 +161,15 @@ namespace MTLTestApp
 
                 //var trace2 = new Plotly.NET.Trace("scatter");
 
-                var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Color.fromString("Blue")).WithLayout(layout);
+                var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
                 //trace2.SetValue("x", measuredData[i]["Frequency(Hz)"]);
                 //trace2.SetValue("y", measuredData[i]["CH2 Amplitude(dB)"]);
                 //trace2.SetValue("mode", "lines");
                 //trace2.SetValue("name", $"Turn {t + 1}");
 
-                var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Color.fromString("Green")).WithLayout(layout);
+                var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
 
-                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Color.fromString("Green")).WithLayout(layout);
+                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
 
                 i++;
 

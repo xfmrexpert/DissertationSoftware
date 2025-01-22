@@ -1,9 +1,7 @@
 
-DefineConstant[ freq = {0, Name "frequency"} ];
-
 Flag_Axi = 1;
 Flag_FrequencyDomain = 1;
-Freq = freq;
+Freq = 60;
 
 Function {
   mu0 = 4.e-7 * Pi;

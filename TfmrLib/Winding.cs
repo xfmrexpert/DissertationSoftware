@@ -9,7 +9,7 @@ using LinAlg = MathNet.Numerics.LinearAlgebra;
 
 namespace TfmrLib
 {
-    public abstract class Winding
+    public class Winding
     {
         private static double in_to_m(double x_in)
         {
@@ -173,9 +173,9 @@ namespace TfmrLib
             return geometry;
         }
 
-        public abstract LinAlg.Matrix<double> Calc_Lmatrix(double f = 60);
+        public virtual LinAlg.Matrix<double> Calc_Lmatrix(double f = 60) { return null; }
 
-        public abstract LinAlg.Matrix<double> Calc_Cmatrix();
+        public virtual LinAlg.Matrix<double> Calc_Cmatrix() { return null; }
 
         public LinAlg.Vector<double> Calc_TurnRadii()
         {

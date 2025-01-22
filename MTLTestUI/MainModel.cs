@@ -21,64 +21,64 @@ namespace MTLTestUI
 {
     public class MainModel
     {
-        public Winding wdg;
+        public Winding wdg = new Winding();
         public Mesh mesh = new Mesh();
 
-        public void CalcMesh(double meshscale = 1.0, int meshorder = 1)
-        {
-            string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
-            string gmshPath = onelab_dir + "gmsh.exe";
-            string model_prefix = "./";
+        //public void CalcMesh(double meshscale = 1.0, int meshorder = 1)
+        //{
+        //    string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
+        //    string gmshPath = onelab_dir + "gmsh.exe";
+        //    string model_prefix = "./";
 
-            TDAP.GmshFile gmshFile = new TDAP.GmshFile("case.geo");
-            gmshFile.lc = 0.1;
-            TDAP.Geometry geometry = wdg.GenerateGeometry();
-            gmshFile.CreateFromGeometry(geometry);
-            gmshFile.writeFile();
+        //    TDAP.GmshFile gmshFile = new TDAP.GmshFile("case.geo");
+        //    gmshFile.lc = 0.1;
+        //    TDAP.Geometry geometry = wdg.GenerateGeometry();
+        //    gmshFile.CreateFromGeometry(geometry);
+        //    gmshFile.writeFile();
 
-            string model = model_prefix + "case";
-            string model_msh = model + ".msh";
-            string model_geo = model + ".geo";
+        //    string model = model_prefix + "case";
+        //    string model_msh = model + ".msh";
+        //    string model_geo = model + ".geo";
 
-            var sb = new StringBuilder();
-            Process p = new Process();
+        //    var sb = new StringBuilder();
+        //    Process p = new Process();
 
-            p.StartInfo.FileName = gmshPath;
-            p.StartInfo.Arguments = $"{model_geo} -2 -order {meshorder} -clscale {meshscale} -v 3";
-            p.StartInfo.CreateNoWindow = true;
+        //    p.StartInfo.FileName = gmshPath;
+        //    p.StartInfo.Arguments = $"{model_geo} -2 -order {meshorder} -clscale {meshscale} -v 3";
+        //    p.StartInfo.CreateNoWindow = true;
 
-            // redirect the output
-            p.StartInfo.RedirectStandardOutput = true;
-            p.StartInfo.RedirectStandardError = true;
+        //    // redirect the output
+        //    p.StartInfo.RedirectStandardOutput = true;
+        //    p.StartInfo.RedirectStandardError = true;
 
-            // hookup the eventhandlers to capture the data that is received
-            p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
-            p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+        //    // hookup the eventhandlers to capture the data that is received
+        //    p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
+        //    p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
 
-            // direct start
-            p.StartInfo.UseShellExecute = false;
+        //    // direct start
+        //    p.StartInfo.UseShellExecute = false;
 
-            p.Start();
+        //    p.Start();
 
-            // start our event pumps
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
+        //    // start our event pumps
+        //    p.BeginOutputReadLine();
+        //    p.BeginErrorReadLine();
 
-            // until we are done
-            p.WaitForExit();
+        //    // until we are done
+        //    p.WaitForExit();
 
-            string output = sb.ToString();
+        //    string output = sb.ToString();
 
-            int return_code = p.ExitCode;
-            if (return_code != 0)
-            {
-                throw new Exception($"Failed to run gmsh");
-            }
-            else
-            {
-                mesh.ReadFromMSH2File(model_msh);
-            }
-        }
+        //    int return_code = p.ExitCode;
+        //    if (return_code != 0)
+        //    {
+        //        throw new Exception($"Failed to run gmsh");
+        //    }
+        //    else
+        //    {
+        //        //mesh.ReadFromMSH2File(model_msh);
+        //    }
+        //}
 
         public Vector<double> CalcCapacitance(int posTurn)
         {
@@ -275,7 +275,7 @@ namespace MTLTestUI
         {
             Matrix<double> C_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
-            CalcMesh();
+            //CalcMesh();
 
             //for (int i = 0; i < 8; i++)
             //{
@@ -416,7 +416,7 @@ namespace MTLTestUI
             f.WriteLine("Vol_Mag += Region[{Air, Turns, Surface_Inf}];");
             f.WriteLine("Vol_C_Mag = Region[{Turns}];");
             f.WriteLine("}");
-            //f.WriteLine($"freq={freq};");
+            f.WriteLine($"freq={freq};");
             f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
             f.Close();
 
@@ -435,7 +435,7 @@ namespace MTLTestUI
             //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
 
             p.StartInfo.FileName = mygetdp;
-            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
+            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
             p.StartInfo.CreateNoWindow = true;
 
             // redirect the output
@@ -463,7 +463,7 @@ namespace MTLTestUI
             int return_code = p.ExitCode;
             if (return_code != 0)
             {
-                throw new Exception($"Failed to run getdp in CalcCapacitance for turn {posTurn}");
+                throw new Exception($"Failed to run getdp in CalcInductance for turn {posTurn}");
             }
 #endif
             (double r, double z) = wdg.GetTurnMidpoint(posTurn);
@@ -536,22 +536,6 @@ namespace MTLTestUI
 
         public void CalcFEMM(TDAP.Geometry geo)
         {
-            var femm = new ActiveFEMM();
-            femm.call2femm("newdocument(0)");
-            double frequency = 60;
-            femm.call2femm($"mi probdef({frequency},\"meters\",\"axi\",1e-8");
-            foreach (var pt in geo.Points)
-            {
-                femm.call2femm($"mi_addnode({pt.x}, {pt.y})");
-            }
-            foreach (var line in geo.Lines)
-            {
-                femm.call2femm($"mi_addsegment({line.pt1.x}, {line.pt1.y}, {line.pt2.x}, {line.pt2.y})");
-            }
-        }
-
-        public void CalcFEMM2(TDAP.Geometry geo)
-        {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();
             Dictionary<int, int> circMap = new Dictionary<int, int>();
@@ -574,8 +558,6 @@ namespace MTLTestUI
             femm.CreateFromGeometry(geo, blockMap, circMap);
             femm.ToFile("test.fem");
         }
-
-       
     }
 
 }

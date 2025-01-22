@@ -170,10 +170,14 @@ Resolution {
       }
     }
     Operation {
-      CreateDirectory[resPath];
-      InitSolution[A];
-      Generate[A]; Solve[A]; 
-      SaveSolution[A];
+        CreateDirectory[resPath];
+        InitSolution[A];
+        Generate[A]; 
+        For j In {0:10}
+          SetFrequency[A, j * 60];
+          Solve[A]; 
+          SaveSolution[A];
+        EndFor
     }
   }
 }

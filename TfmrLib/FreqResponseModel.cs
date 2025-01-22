@@ -84,30 +84,5 @@ namespace TfmrLib
 
             return V_response;
         }
-
-        public List<List<double>> CalcResponseLumped_Deprecated()
-        {
-
-
-            // Create vector of frequencies
-            var freqs = Generate.LogSpaced(NumSteps, Math.Log10(MinFreq), Math.Log10(MaxFreq));
-
-            var Z_term = new List<double>();
-            //List of lists
-            var V_r = new List<List<double>>();
-
-            for (int t = 0; t < Wdg.num_turns; t++)
-            {
-                V_r.Add(new List<double>());
-            }
-
-            foreach (var f in freqs)
-            {
-                // TODO: sort out return values
-                CalcResponseAtFreq(f);
-            }
-
-            return V_r;
-        }
     }
 }

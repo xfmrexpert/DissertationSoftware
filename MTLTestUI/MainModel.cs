@@ -16,6 +16,13 @@ using Femm;
 using Avalonia.Media;
 using TfmrLib;
 using MeshLib;
+using CliWrap;
+using MathNet.Numerics.LinearAlgebra.Storage;
+using CliWrap.EventStream;
+using System.Reflection.Metadata.Ecma335;
+using System.Globalization;
+using System.Numerics;
+using System.Text.RegularExpressions;
 
 namespace MTLTestUI
 {
@@ -24,63 +31,7 @@ namespace MTLTestUI
         public Winding wdg = new Winding();
         public Mesh mesh = new Mesh();
 
-        //public void CalcMesh(double meshscale = 1.0, int meshorder = 1)
-        //{
-        //    string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
-        //    string gmshPath = onelab_dir + "gmsh.exe";
-        //    string model_prefix = "./";
-
-        //    TDAP.GmshFile gmshFile = new TDAP.GmshFile("case.geo");
-        //    gmshFile.lc = 0.1;
-        //    TDAP.Geometry geometry = wdg.GenerateGeometry();
-        //    gmshFile.CreateFromGeometry(geometry);
-        //    gmshFile.writeFile();
-
-        //    string model = model_prefix + "case";
-        //    string model_msh = model + ".msh";
-        //    string model_geo = model + ".geo";
-
-        //    var sb = new StringBuilder();
-        //    Process p = new Process();
-
-        //    p.StartInfo.FileName = gmshPath;
-        //    p.StartInfo.Arguments = $"{model_geo} -2 -order {meshorder} -clscale {meshscale} -v 3";
-        //    p.StartInfo.CreateNoWindow = true;
-
-        //    // redirect the output
-        //    p.StartInfo.RedirectStandardOutput = true;
-        //    p.StartInfo.RedirectStandardError = true;
-
-        //    // hookup the eventhandlers to capture the data that is received
-        //    p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
-        //    p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
-
-        //    // direct start
-        //    p.StartInfo.UseShellExecute = false;
-
-        //    p.Start();
-
-        //    // start our event pumps
-        //    p.BeginOutputReadLine();
-        //    p.BeginErrorReadLine();
-
-        //    // until we are done
-        //    p.WaitForExit();
-
-        //    string output = sb.ToString();
-
-        //    int return_code = p.ExitCode;
-        //    if (return_code != 0)
-        //    {
-        //        throw new Exception($"Failed to run gmsh");
-        //    }
-        //    else
-        //    {
-        //        //mesh.ReadFromMSH2File(model_msh);
-        //    }
-        //}
-
-        public Vector<double> CalcCapacitance(int posTurn)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcCapacitance(int posTurn)
         {
             string dir = posTurn.ToString();
             
@@ -265,7 +216,7 @@ namespace MTLTestUI
             var resultFile = File.OpenText(model_prefix + "res/q.txt");
             string line = resultFile.ReadLine();
             var C_array = Array.ConvertAll(line.Split().Skip(2).ToArray(), Double.Parse);
-            var C = Vector<double>.Build.Dense(C_array);
+            var C = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(C_array);
             C = C / r;
             resultFile.Close();
             return C;
@@ -320,7 +271,7 @@ namespace MTLTestUI
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
         }
 
-        public Vector<double> CalcInductance(int posTurn, int negTurn, double freq, int order = 1)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance(int posTurn, int negTurn, double freq, int order = 1)
         {
 
             string dir = posTurn.ToString();
@@ -435,7 +386,7 @@ namespace MTLTestUI
             //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
 
             p.StartInfo.FileName = mygetdp;
-            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
+            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 10";
             p.StartInfo.CreateNoWindow = true;
 
             // redirect the output
@@ -482,12 +433,12 @@ namespace MTLTestUI
             var resultFile = File.OpenText(model_prefix + "out.txt");
             string line = resultFile.ReadLine();
             var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
-            var L = Vector<double>.Build.Dense(L_array);
+            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
             resultFile.Close();
             return L;
         }
 
-        public void CalcInductanceMatrix(double freq, int order = 2)
+        public void CalcInductanceMatrix(double freq, int order = 1)
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
@@ -498,6 +449,37 @@ namespace MTLTestUI
             for (int t = 0; t < wdg.num_turns; t++)
             {
                 L_getdp.SetRow(t, CalcInductance(t, -1, freq, order));
+                (double r, double z) = wdg.GetTurnMidpoint(t);
+                //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
+            }
+
+            Console.Write((L_getdp * 2 * Math.PI / 1e-9).ToMatrixString());
+
+            for (int t1 = 0; t1 < wdg.num_turns; t1++)
+            {
+                (double r, double z) = wdg.GetTurnMidpoint(t1);
+                for (int t2 = 0; t2 < wdg.num_turns; t2++)
+                {
+                    L_getdp[t1, t2] = L_getdp[t1, t2] / r;
+                }
+            }
+
+            //Console.Write((L_getdp/1e-9).ToMatrixString());
+
+            DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
+        }
+
+        public async void CalcInductanceMatrix_FEMM(TDAP.Geometry geom, double freq, int order = 2)
+        {
+            Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
+
+            //Console.WriteLine($"Frequency: {freq.ToString("0.##E0")}");
+            //CalcMesh();
+
+            //Parallel.For(0, n_turns, t =>
+            for (int t = 0; t < wdg.num_turns; t++)
+            {
+                L_getdp.SetRow(t, await CalcInductance_FEMM(geom, freq, t));
                 (double r, double z) = wdg.GetTurnMidpoint(t);
                 //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
@@ -531,10 +513,10 @@ namespace MTLTestUI
 
             //Console.Write((L_getdp/1e-9).ToMatrixString());
 
-            DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
+            DelimitedWriter.Write($"L_femm_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public void CalcFEMM(TDAP.Geometry geo)
+        public async Task<MathNet.Numerics.LinearAlgebra.Vector<double>> CalcInductance_FEMM(TDAP.Geometry geo, double freq, int turn)
         {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();
@@ -554,9 +536,90 @@ namespace MTLTestUI
             {
                 blockMap[idx] = blkPaper;
             }
-            
+            blockMap[wdg.phyInf] = blkAir;
+            int blkAxis = femm.CreateNewBdryProp("Axis");
+
             femm.CreateFromGeometry(geo, blockMap, circMap);
-            femm.ToFile("test.fem");
+
+            femm.BlockProps[blkAir].Mu_x = 1.0f;
+            femm.BlockProps[blkAir].Mu_y = 1.0f;
+            femm.BlockProps[blkPaper].Mu_x = 1.0f;
+            femm.BlockProps[blkPaper].Mu_y = 1.0f;
+            femm.BlockProps[blkCu].Mu_x = 1.0f;
+            femm.BlockProps[blkCu].Mu_y = 1.0f;
+            femm.BlockProps[blkCu].Sigma = 58f;
+
+            femm.BdryProps[blkAxis].BdryType = FEMMBdryType.prescribedA;
+            femm.BdryProps[blkAxis].A_0 = 0.0f;
+            femm.BdryProps[blkAxis].A_1 = 0.0f;
+            femm.BdryProps[blkAxis].A_2 = 0.0f;
+
+            femm.CircuitProps[turn].TotalAmps_re = 1.0f;
+
+            // TODO: Don't hard code this shit you lazy twat
+            femm.ToFile("case.fem");
+
+            var cmd = Cli.Wrap("./bin/fkn.exe").WithArguments("case");
+
+            await foreach (var cmdEvent in cmd.ListenAsync())
+            {
+                switch (cmdEvent)
+                {
+                    case StartedCommandEvent started:
+                        Console.WriteLine($"Process started; ID: {started.ProcessId}");
+                        //Cli.Wrap("vsjitdebugger.exe").WithArguments($"-p {started.ProcessId}").ExecuteAsync();
+                        break;
+                    case StandardOutputCommandEvent stdOut:
+                        Console.WriteLine($"Out> {stdOut.Text}");
+                        break;
+                    case StandardErrorCommandEvent stdErr:
+                        Console.WriteLine($"Err> {stdErr.Text}");
+                        break;
+                    case ExitedCommandEvent exited:
+                        Console.WriteLine($"Process exited; Code: {exited.ExitCode}");
+                        if (exited.ExitCode != 0)
+                        {
+                            throw new Exception($"Failed to run FEMM");
+                        }
+                        break;
+                }
+            }
+
+            string filePath = "inductances.txt";
+            MathNet.Numerics.LinearAlgebra.Vector<double> inductances = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(wdg.num_turns);
+            Regex complexRegex = new Regex(@"([\d.eE+-]+)\s*\+\s*j([\d.eE+-]+)", RegexOptions.Compiled);
+
+            try
+            {
+                int t = 0;
+                foreach (string line in File.ReadLines(filePath))
+                {
+                    Match match = complexRegex.Match(line);
+                    if (match.Success &&
+                        double.TryParse(match.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double real) &&
+                        double.TryParse(match.Groups[2].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double imaginary))
+                    {
+                        inductances[t] = real / (2 * Math.PI);
+                        t++;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: Could not parse '{line}' as a complex number.");
+                    }
+                }
+
+                //Console.WriteLine("Parsed Inductances:");
+                //foreach (double inductance in inductances)
+                //{
+                //    Console.WriteLine(inductance);
+                //}
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading file: {ex.Message}");
+            }
+
+            return inductances;
         }
     }
 

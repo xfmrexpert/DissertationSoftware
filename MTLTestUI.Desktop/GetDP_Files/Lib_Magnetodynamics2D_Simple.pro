@@ -173,11 +173,12 @@ Resolution {
         CreateDirectory[resPath];
         InitSolution[A];
         Generate[A]; 
-        For j In {0:10}
+        //For j In {0:10}
+        j=1;
           SetFrequency[A, j * 60];
           Solve[A]; 
           SaveSolution[A];
-        EndFor
+        //EndFor
     }
   }
 }

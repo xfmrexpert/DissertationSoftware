@@ -107,13 +107,24 @@ namespace TfmrLib
             return (r, z);
         }
 
-        public Geometry GenerateGeometry()
+        public Geometry GenerateGeometry(bool RestartNumbersPerDimension = true)
         {
             bool include_ins = true;
 
             double z_offset = (num_discs * (h_cond + 2 * t_ins) + (num_discs - 1) * h_spacer + dist_wdg_tank_bottom + dist_wdg_tank_top) / 2;
 
             var geometry = new Geometry();
+
+            phyAxis = 1;
+            phyExtBdry = 2;
+            if (RestartNumbersPerDimension)
+            {
+                phyAir = 1;
+                phyInf = 2;
+            } else {
+                phyAir = 3;
+                phyInf = 4;
+            }
 
             var conductorins_bdrys = new GeomLineLoop[num_discs * turns_per_disc];
             //var turn_surfaces = new GeomSurface[num_discs * turns_per_disc];
@@ -131,16 +142,24 @@ namespace TfmrLib
                 (double r, double z) = GetTurnMidpoint(i);
                 z = z - z_offset;
                 var conductor_bdry = geometry.AddRoundedRectangle(r, z, h_cond, t_cond, r_cond_corner, 0.0004);
-                conductor_bdry.AttribID = phyTurnsCondBdry[i] = i + 2 * num_turns + 5;
+                if (RestartNumbersPerDimension)
+                {
+                    conductor_bdry.AttribID = i + phyExtBdry + 1; // Line, starts after phyExtBdry
+                }
+                else
+                {
+                    conductor_bdry.AttribID = i + 2 * num_turns + phyInf + 1; // Line, starts after phyInf
+                }
+                phyTurnsCondBdry[i] = conductor_bdry.AttribID; // Line, starts after phyExtBdry
                 if (include_ins)
                 {
                     var insulation_bdry = geometry.AddRoundedRectangle(r, z, h_cond + 2 * t_ins, t_cond + 2 * t_ins, r_cond_corner + t_ins, 0.003);
                     var insulation_surface = geometry.AddSurface(insulation_bdry, conductor_bdry);
-                    insulation_surface.AttribID = phyTurnsIns[i] = i + num_turns + 5;
+                    insulation_surface.AttribID = phyTurnsIns[i] = i + num_turns + phyInf + 1; // Surface, starts after turn surfaces
                     conductorins_bdrys[i] = insulation_bdry;
                 }
                 var conductor_surface = geometry.AddSurface(conductor_bdry);
-                conductor_surface.AttribID = phyTurnsCond[i] = i + 5;
+                conductor_surface.AttribID = phyTurnsCond[i] = i + phyInf + 1; // Surface, starts after phyInf
                 if (!include_ins)
                 {
                     conductorins_bdrys[i] = conductor_bdry;
@@ -156,19 +175,19 @@ namespace TfmrLib
             var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
             var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
             //var axis_lower = geometry.AddLine(pt_axis_bottom, pt_origin);
-            axis.AttribID = phyAxis = 3;
+            axis.AttribID = phyAxis;
             //axis_lower.AttribID = 3;
             var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, -Math.PI);
             var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, -Math.PI);
             var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
             var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
-            outer_bdry.AttribID = phyExtBdry = 2;
+            outer_bdry.AttribID = phyExtBdry;
 
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys);
-            interior_surface.AttribID = phyAir = 1;
+            interior_surface.AttribID = phyAir;
 
             var inf_surface = geometry.AddSurface(outer_bdry_inf);
-            inf_surface.AttribID = phyInf = 4;
+            inf_surface.AttribID = phyInf;
 
             return geometry;
         }

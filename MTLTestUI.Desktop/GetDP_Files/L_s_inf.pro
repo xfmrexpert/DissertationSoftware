@@ -1,7 +1,7 @@
 
 Flag_Axi = 1;
 Flag_FrequencyDomain = 1;
-Freq = 60;
+//Freq = 60;
 
 Function {
   mu0 = 4.e-7 * Pi;

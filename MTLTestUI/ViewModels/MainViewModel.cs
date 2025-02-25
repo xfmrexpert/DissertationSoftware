@@ -21,11 +21,11 @@ public partial class MainViewModel : ViewModelBase
     {
         _mainModel = new MainModel();
         
-        //_mainModel.wdg.num_discs = 2;
-        //_mainModel.wdg.turns_per_disc = 3;
+        _mainModel.wdg.num_discs = 1;
+        _mainModel.wdg.turns_per_disc = 2;
 
-        _mainModel.wdg.eps_paper = 2.7; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
-
+        _mainModel.wdg.eps_paper = 1.7; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
+        _mainModel.wdg.r_core = 0.0;
         _mainModel.wdg.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.wdg.bdry_radius}");
 
@@ -36,20 +36,24 @@ public partial class MainViewModel : ViewModelBase
         Mesh = gmshFile.GenerateMesh(meshscale, 2);
         _mainModel.mesh = Mesh;
         Mesh.WriteToTriangleFiles("", "case");
-        //_mainModel.CalcInductanceMatrix(60);
-        //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        _mainModel.CalcCapacitanceMatrix();
+        //_mainModel.CalcInductanceMatrix(10000);
+        //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 10000);
+        //_mainModel.CalcCapacitanceMatrix();
 
         int num_freqs = 10;
         double min_freq = 10e3;
         double max_freq = 1e6;
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
-        _mainModel.CalcInductanceMatrix(60, 2);
-        _mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
+        //_mainModel.CalcInductanceMatrix(60, 2);
+        //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
         foreach (var freq in freqs)
         {
-            _mainModel.CalcInductanceMatrix(freq, 2);
-            _mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
+            if (freq > 0)
+            {
+                _mainModel.CalcInductanceMatrix(freq, 2);
+                //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
+            }
+            //
         }
         
     }

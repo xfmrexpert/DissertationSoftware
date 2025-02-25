@@ -31,7 +31,7 @@ namespace MTLTestUI
         public Winding wdg = new Winding();
         public Mesh mesh = new Mesh();
 
-        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcCapacitance(int posTurn)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcCapacitance(int posTurn, int order=1)
         {
             string dir = posTurn.ToString();
             
@@ -39,7 +39,7 @@ namespace MTLTestUI
             Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
 
             var f = File.CreateText($"Results/{dir}/case.pro");
-
+            f.WriteLine($"FE_Order = {order};");
             f.WriteLine("Group{");
             f.WriteLine($"Air = Region[{wdg.phyAir}];");
             for (int i = 0; i < wdg.num_turns; i++)
@@ -109,6 +109,7 @@ namespace MTLTestUI
                     f.Write("}];\n");
                 }
             }
+            f.WriteLine($"Sur_Neu_Ele = Region[{wdg.phyAxis}];");
             f.WriteLine("}");
 
             //TODO: Fix for case where posTurn is last turn
@@ -222,7 +223,7 @@ namespace MTLTestUI
             return C;
         }
 
-        public void CalcCapacitanceMatrix()
+        public void CalcCapacitanceMatrix(int order=1)
         {
             Matrix<double> C_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
@@ -367,7 +368,7 @@ namespace MTLTestUI
             f.WriteLine("Vol_Mag += Region[{Air, Turns, Surface_Inf}];");
             f.WriteLine("Vol_C_Mag = Region[{Turns}];");
             f.WriteLine("}");
-            f.WriteLine($"freq={freq};");
+            f.WriteLine($"Freq={freq};");
             f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
             f.Close();
 
@@ -386,7 +387,7 @@ namespace MTLTestUI
             //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
 
             p.StartInfo.FileName = mygetdp;
-            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 10";
+            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
             p.StartInfo.CreateNoWindow = true;
 
             // redirect the output
@@ -469,7 +470,7 @@ namespace MTLTestUI
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public async void CalcInductanceMatrix_FEMM(TDAP.Geometry geom, double freq, int order = 2)
+        public void CalcInductanceMatrix_FEMM(TDAP.Geometry geom, double freq, int order = 2)
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
@@ -479,7 +480,7 @@ namespace MTLTestUI
             //Parallel.For(0, n_turns, t =>
             for (int t = 0; t < wdg.num_turns; t++)
             {
-                L_getdp.SetRow(t, await CalcInductance_FEMM(geom, freq, t));
+                L_getdp.SetRow(t, CalcInductance_FEMM(geom, freq, t));
                 (double r, double z) = wdg.GetTurnMidpoint(t);
                 //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
@@ -516,11 +517,12 @@ namespace MTLTestUI
             DelimitedWriter.Write($"L_femm_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public async Task<MathNet.Numerics.LinearAlgebra.Vector<double>> CalcInductance_FEMM(TDAP.Geometry geo, double freq, int turn)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance_FEMM(TDAP.Geometry geo, double freq, int turn)
         {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();
             Dictionary<int, int> circMap = new Dictionary<int, int>();
+            femm.Frequency = freq;
             int blkAir = femm.CreateNewBlockProp("Air");
             int blkPaper = femm.CreateNewBlockProp("Paper");
             int blkCu = femm.CreateNewBlockProp("Copper");
@@ -559,31 +561,7 @@ namespace MTLTestUI
             // TODO: Don't hard code this shit you lazy twat
             femm.ToFile("case.fem");
 
-            var cmd = Cli.Wrap("./bin/fkn.exe").WithArguments("case");
-
-            await foreach (var cmdEvent in cmd.ListenAsync())
-            {
-                switch (cmdEvent)
-                {
-                    case StartedCommandEvent started:
-                        Console.WriteLine($"Process started; ID: {started.ProcessId}");
-                        //Cli.Wrap("vsjitdebugger.exe").WithArguments($"-p {started.ProcessId}").ExecuteAsync();
-                        break;
-                    case StandardOutputCommandEvent stdOut:
-                        Console.WriteLine($"Out> {stdOut.Text}");
-                        break;
-                    case StandardErrorCommandEvent stdErr:
-                        Console.WriteLine($"Err> {stdErr.Text}");
-                        break;
-                    case ExitedCommandEvent exited:
-                        Console.WriteLine($"Process exited; Code: {exited.ExitCode}");
-                        if (exited.ExitCode != 0)
-                        {
-                            throw new Exception($"Failed to run FEMM");
-                        }
-                        break;
-                }
-            }
+            Cli.Wrap("./bin/fkn.exe").WithArguments("case").ExecuteAsync().GetAwaiter().GetResult();
 
             string filePath = "inductances.txt";
             MathNet.Numerics.LinearAlgebra.Vector<double> inductances = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(wdg.num_turns);

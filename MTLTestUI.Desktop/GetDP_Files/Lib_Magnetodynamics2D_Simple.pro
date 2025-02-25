@@ -11,7 +11,7 @@ DefineConstant[
   modelPath = "", // default path of the model
   resPath = StrCat[modelPath, "res/"], // path for post-operation files
   CoefPower = 0.5, // coefficient for power calculations
-  Freq = 60, // frequency (for harmonic simulations)
+  //Freq = 60, // frequency (for harmonic simulations)
   FE_Order = 1 // finite element order,
   Val_Rint = 0, // interior radius of annulus shell transformation region (Vol_Inf_Mag)
   Val_Rext = 0, // exterior radius of annulus shell  transformation region (Vol_Inf_Mag)
@@ -175,7 +175,7 @@ Resolution {
         Generate[A]; 
         //For j In {0:10}
         j=1;
-          SetFrequency[A, j * 60];
+          SetFrequency[A, Freq];
           Solve[A]; 
           SaveSolution[A];
         //EndFor

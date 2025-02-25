@@ -16,22 +16,23 @@ namespace TfmrLib
             return x_in * 25.4 / 1000;
         }
 
-        public double dist_wdg_tank_right = 4;
-        public double dist_wdg_tank_top = 4;
-        public double dist_wdg_tank_bottom = 2;
-        public double r_inner = in_to_m(15.25);
-        public double t_cond = in_to_m(0.085);
-        public double h_cond = in_to_m(0.3);
-        public double t_ins = in_to_m(0.018);
-        public double h_spacer = in_to_m(0.188);
-        public double r_cond_corner = 0.1;
-        public int num_discs = 14;
-        public int turns_per_disc = 20;
-        public double eps_oil = 1.0; //2.2;
-        public double eps_paper = 2.2; //3.5;
-        public double rho_c = 1.68e-8; //ohm-m;
-        public Complex Rs = Complex.Zero;
-        public Complex Rl = Complex.Zero;
+        public double dist_wdg_tank_right;
+        public double dist_wdg_tank_top;
+        public double dist_wdg_tank_bottom;
+        public double r_core;
+        public double r_inner;
+        public double t_cond;
+        public double h_cond;
+        public double t_ins;
+        public double h_spacer;
+        public double r_cond_corner;
+        public int num_discs;
+        public int turns_per_disc;
+        public double eps_oil; //2.2;
+        public double eps_paper; //3.5;
+        public double rho_c; //ohm-m;
+        public Complex Rs;
+        public Complex Rl;
 
         public double bdry_radius = 1.0; //radius of outer boundary of finite element model
 
@@ -61,7 +62,7 @@ namespace TfmrLib
             h_cond = in_to_m(0.3);
             t_ins = in_to_m(0.018);
             h_spacer = in_to_m(0.188);
-            r_cond_corner = 0.1 * t_cond;
+            r_cond_corner = in_to_m(0.032);
             num_discs = 14;
             turns_per_disc = 20;
             eps_oil = 1.0; //2.2;
@@ -71,19 +72,6 @@ namespace TfmrLib
             Rl = Complex.Zero;
             bdry_radius = 1.0;
         }
-
-        //static double dist_wdg_tank_right = 40.0 / 1000.0;
-        //static double dist_wdg_tank_top = 40.0 / 1000.0;
-        //static double dist_wdg_tank_bottom = 40.0 / 1000.0;
-        //static double r_inner = 20.0 / 1000.0;
-        //static double t_cond = 3.0 / 1000.0;
-        //static double h_cond = 12.0 / 1000.0;
-        //static double t_ins = 0.5 / 1000.0;
-        //static double h_spacer = 6.0 / 1000.0;
-        //static int num_discs = 2;
-        //static int turns_per_disc = 6;
-        //static double eps_oil = 2.2;
-        //static double eps_paper = 3.5;
 
         public (double r, double z) GetTurnMidpoint(int n)
         {
@@ -115,6 +103,7 @@ namespace TfmrLib
 
             var geometry = new Geometry();
 
+            // Setup axis and external boundaries
             phyAxis = 1;
             phyExtBdry = 2;
             if (RestartNumbersPerDimension)
@@ -126,9 +115,25 @@ namespace TfmrLib
                 phyInf = 4;
             }
 
+            // Left boundary (axis if core radius is 0)
+            var pt_origin = geometry.AddPoint(r_core, 0, 0.1);
+            var pt_axis_top = geometry.AddPoint(r_core, bdry_radius, 0.1);
+            var pt_axis_top_inf = geometry.AddPoint(r_core, 1.1 * bdry_radius, 0.1);
+            var pt_axis_bottom = geometry.AddPoint(r_core, -bdry_radius, 0.1);
+            var pt_axis_bottom_inf = geometry.AddPoint(r_core, -1.1 * bdry_radius, 0.1);
+            var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
+            var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
+            var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
+            axis.AttribID = phyAxis;
+
+            var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, -Math.PI);
+            var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, -Math.PI);
+            var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
+            var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
+            outer_bdry.AttribID = phyExtBdry;
+
+            // Setup conductor and insulation boundaries
             var conductorins_bdrys = new GeomLineLoop[num_discs * turns_per_disc];
-            //var turn_surfaces = new GeomSurface[num_discs * turns_per_disc];
-            //var ins_surfaces = 
 
             phyTurnsCond = new int[num_turns];
             phyTurnsCondBdry = new int[num_turns];
@@ -165,23 +170,6 @@ namespace TfmrLib
                     conductorins_bdrys[i] = conductor_bdry;
                 }
             }
-
-            var pt_origin = geometry.AddPoint(0, 0, 0.1);
-            var pt_axis_top = geometry.AddPoint(0, bdry_radius, 0.1);
-            var pt_axis_top_inf = geometry.AddPoint(0, 1.1 * bdry_radius, 0.1);
-            var pt_axis_bottom = geometry.AddPoint(0, -bdry_radius, 0.1);
-            var pt_axis_bottom_inf = geometry.AddPoint(0, -1.1 * bdry_radius, 0.1);
-            var axis = geometry.AddLine(pt_axis_bottom, pt_axis_top);
-            var axis_top_inf = geometry.AddLine(pt_axis_top, pt_axis_top_inf);
-            var axis_bottom_inf = geometry.AddLine(pt_axis_bottom_inf, pt_axis_bottom);
-            //var axis_lower = geometry.AddLine(pt_axis_bottom, pt_origin);
-            axis.AttribID = phyAxis;
-            //axis_lower.AttribID = 3;
-            var right_bdry = geometry.AddArc(pt_axis_top, pt_axis_bottom, bdry_radius, -Math.PI);
-            var right_bdry_inf = geometry.AddArc(pt_axis_top_inf, pt_axis_bottom_inf, 1.1 * bdry_radius, -Math.PI);
-            var outer_bdry = geometry.AddLineLoop(axis, right_bdry);
-            var outer_bdry_inf = geometry.AddLineLoop(axis_bottom_inf, right_bdry, axis_top_inf, right_bdry_inf);
-            outer_bdry.AttribID = phyExtBdry;
 
             var interior_surface = geometry.AddSurface(outer_bdry, conductorins_bdrys);
             interior_surface.AttribID = phyAir;

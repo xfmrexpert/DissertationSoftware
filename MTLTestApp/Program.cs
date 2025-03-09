@@ -9,23 +9,12 @@ using Spectre.Console;
 
 namespace MTLTestApp
 {
-    //using Matrix_d = LinAlg.Matrix<double>;
-    //using Matrix_c = LinAlg.Matrix<Complex>;
-    //using Vector_d = LinAlg.Vector<double>;
-    //using Vector_c = LinAlg.Vector<Complex>;
-
     internal class Program
     {
-        //static private MatrixBuilder<double> M_d = Matrix_d.Build;
-        //static private MatrixBuilder<Complex> M_c = Matrix_c.Build;
-        //static private VectorBuilder<double> V_d = Vector_d.Build;
-        //static private VectorBuilder<Complex> V_c = Vector_c.Build;
-
-        // static Winding wdg = new Winding();
 
         static double min_freq = 100e3;
         static double max_freq = 1e6;
-        static int num_freqs = 100;
+        static int num_freqs = 1000;
 
         static int num_turns;
 
@@ -34,14 +23,17 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            //TestPlots();
-
             string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
 
-            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\26DEC2023_Rough_NoCore");
+            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
+
+            //wdgAnalytic.num_discs = 1;
+            //wdgAnalytic.turns_per_disc = 2;
+            //wdgGetDP.num_discs = 1;
+            //wdgGetDP.turns_per_disc = 2;
 
             num_turns = wdgAnalytic.num_turns;
 
@@ -145,36 +137,20 @@ namespace MTLTestApp
 
             var charts = new List<GenericChart>();
             int i = 0;
-            // TODO: Verify this
+            // Presuming these numbers are the start of turns, then this is correct
             for (int t = 40; t < (num_turns - 1); t = t + 40)
             {
-                //Console.WriteLine($"Turn: {t - 1}\tr: {wdg.GetTurnMidpoint(t - 1).r}\tz: {wdg.GetTurnMidpoint(t - 1).z}");
-                //Console.WriteLine($"Turn: {t}\tr: {wdg.GetTurnMidpoint(t).r}\tz: {wdg.GetTurnMidpoint(t).z}");
-                //Console.WriteLine($"Turn: {t + 1}\tr: {wdg.GetTurnMidpoint(t + 1).r}\tz: {wdg.GetTurnMidpoint(t + 1).z}");
-
-                //var traces = new List<Plotly.NET.Trace>();
                 var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
-                //trace.SetValue("x", freqs);
-                //trace.SetValue("y", V_response_analytic[t]);
-                //trace.SetValue("mode", "lines");
-                //trace.SetValue("name", $"Turn {t + 1}");
-
-                //var trace2 = new Plotly.NET.Trace("scatter");
-
+                
                 var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
-                //trace2.SetValue("x", measuredData[i]["Frequency(Hz)"]);
-                //trace2.SetValue("y", measuredData[i]["CH2 Amplitude(dB)"]);
-                //trace2.SetValue("mode", "lines");
-                //trace2.SetValue("name", $"Turn {t + 1}");
-
+                
                 var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
 
-                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
+                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
 
                 i++;
 
                 charts.Add(Plotly.NET.Chart.Combine([chart1, chart2, chart3, chart4]).WithTitle($"Turn {t}"));
-                //charts.Add(chart2);
             }
 
             var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable <GenericChart>> (3, 2).Invoke(charts).WithSize(1600, 1200);
@@ -233,7 +209,7 @@ namespace MTLTestApp
             string[] allLines = File.ReadAllLines(filename);
 
             // Skip the first 24 lines
-            var dataLines = allLines[24..];
+            var dataLines = allLines[27..];
 
             // Assuming the first non-skipped line contains headers
             string[] headers = dataLines[0].Split(',');

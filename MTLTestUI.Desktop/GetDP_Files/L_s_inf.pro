@@ -54,6 +54,7 @@ PostOperation {
 	    Format Table, SendToServer "Output/Global/Inductance [H]" ];
       //Print[ Inductance_from_Flux [Vol_C_Mag], OnRegion Vol_C_Mag, File "out2.txt",
 	    //Format Table, SendToServer "Output/Global/Inductance2 [H]" ];
+      Print[ JouleLosses, OnRegion Vol_C_Mag, File "out3.txt", Format Table];
     }
   }
 }

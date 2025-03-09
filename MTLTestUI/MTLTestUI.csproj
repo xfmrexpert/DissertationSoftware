@@ -42,6 +42,5 @@
   <ItemGroup>
     <ProjectReference Include="..\GeomLibrary\GeometryLib\GeometryLib.csproj" />
     <ProjectReference Include="..\GeomLibrary\MeshLib\MeshLib.csproj" />
-    <ProjectReference Include="..\TfmrLib\TfmrLib.csproj" />
   </ItemGroup>
 </Project>

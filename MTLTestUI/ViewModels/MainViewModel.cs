@@ -3,6 +3,7 @@ using MathNet.Numerics;
 using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using TDAP;
@@ -24,7 +25,7 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.wdg.num_discs = 1;
         _mainModel.wdg.turns_per_disc = 2;
 
-        _mainModel.wdg.eps_paper = 1.7; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
+        _mainModel.wdg.eps_paper = 1.5; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
         _mainModel.wdg.r_core = 0.0;
         _mainModel.wdg.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.wdg.bdry_radius}");
@@ -36,8 +37,7 @@ public partial class MainViewModel : ViewModelBase
         Mesh = gmshFile.GenerateMesh(meshscale, 2);
         _mainModel.mesh = Mesh;
         Mesh.WriteToTriangleFiles("", "case");
-        //_mainModel.CalcInductanceMatrix(10000);
-        //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 10000);
+        
         //_mainModel.CalcCapacitanceMatrix();
 
         int num_freqs = 10;
@@ -46,12 +46,12 @@ public partial class MainViewModel : ViewModelBase
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
         //_mainModel.CalcInductanceMatrix(60, 2);
         //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        foreach (var freq in freqs)
+        foreach (var freq in (List<double>)[100, 120, 1e3, 10e3, 100e3])
         {
             if (freq > 0)
             {
                 _mainModel.CalcInductanceMatrix(freq, 2);
-                //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
+                _mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //
         }

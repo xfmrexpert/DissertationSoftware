@@ -10,7 +10,7 @@
 DefineConstant[
   modelPath = "", // default path of the model
   resPath = StrCat[modelPath, "res/"], // path for post-operation files
-  CoefPower = 0.5, // coefficient for power calculations
+  CoefPower = 1.0, // coefficient for power calculations (0.5 for max value, 1 for RMS)
   //Freq = 60, // frequency (for harmonic simulations)
   FE_Order = 1 // finite element order,
   Val_Rint = 0, // interior radius of annulus shell transformation region (Vol_Inf_Mag)

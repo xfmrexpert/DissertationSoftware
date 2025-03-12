@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\TfmrLibrary\TfmrLib.csproj" />
     <ProjectReference Include="..\GeomLibrary\GeometryLib\GeometryLib.csproj" />
     <ProjectReference Include="..\GeomLibrary\MeshLib\MeshLib.csproj" />
   </ItemGroup>

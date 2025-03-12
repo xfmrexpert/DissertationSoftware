@@ -26,11 +26,11 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.wdg.turns_per_disc = 2;
 
         _mainModel.wdg.eps_paper = 1.5; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
-        _mainModel.wdg.r_core = 0.0;
-        _mainModel.wdg.bdry_radius = 3.0;
-        Console.WriteLine($"Boundary Radius: {_mainModel.wdg.bdry_radius}");
+        _mainModel.tfmr.r_core = 0.0;
+        _mainModel.tfmr.bdry_radius = 3.0;
+        Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
 
-        Geometry = _mainModel.wdg.GenerateGeometry(false);
+        Geometry = _mainModel.tfmr.GenerateGeometry(false);
         GmshFile gmshFile = new GmshFile("case.geo");
         gmshFile.CreateFromGeometry(Geometry);
         double meshscale = 1.0;
@@ -51,7 +51,7 @@ public partial class MainViewModel : ViewModelBase
             if (freq > 0)
             {
                 _mainModel.CalcInductanceMatrix(freq, 2);
-                _mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
+                //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //
         }

@@ -28,8 +28,17 @@ namespace MTLTestUI
 {
     public class MainModel
     {
-        public Winding wdg = new Winding();
-        public Mesh mesh = new Mesh();
+        public Transformer tfmr;
+        public Winding wdg;
+        public Mesh mesh;
+
+        public MainModel()
+        {
+            tfmr = new Transformer();
+            wdg = new Winding();
+            tfmr.Windings.Add(wdg);
+            mesh = new Mesh();
+        }
 
         public MathNet.Numerics.LinearAlgebra.Vector<double> CalcCapacitance(int posTurn, int order=1)
         {
@@ -41,7 +50,7 @@ namespace MTLTestUI
             var f = File.CreateText($"Results/{dir}/case.pro");
             f.WriteLine($"FE_Order = {order};");
             f.WriteLine("Group{");
-            f.WriteLine($"Air = Region[{wdg.phyAir}];");
+            f.WriteLine($"Air = Region[{tfmr.phyAir}];");
             for (int i = 0; i < wdg.num_turns; i++)
             {
                 f.WriteLine($"Turn{i} = Region[{wdg.phyTurnsCondBdry[i]}];");
@@ -92,8 +101,8 @@ namespace MTLTestUI
             f.Write("}];\n");
 
             // f.write(f"Ground = Region[{phyCore}];\n")
-            f.WriteLine($"Axis = Region[{wdg.phyAxis}];");
-            f.WriteLine($"Surface_Inf = Region[{wdg.phyInf}];");
+            f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
+            f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
             f.WriteLine("Vol_Ele = Region[{Air, TurnIns}];");
             f.Write("Sur_C_Ele = Region[{");
             //f.Write($"Turn{posTurn}}}];");
@@ -109,7 +118,7 @@ namespace MTLTestUI
                     f.Write("}];\n");
                 }
             }
-            f.WriteLine($"Sur_Neu_Ele = Region[{wdg.phyAxis}];");
+            f.WriteLine($"Sur_Neu_Ele = Region[{tfmr.phyAxis}];");
             f.WriteLine("}");
 
             //TODO: Fix for case where posTurn is last turn
@@ -138,7 +147,7 @@ namespace MTLTestUI
 
             Function {{
                 dn[Region[Axis]] = 0; 
-                epsr[Region[{{Air}}]] = {wdg.eps_oil};
+                epsr[Region[{{Air}}]] = {tfmr.eps_oil};
                 epsr[Region[{{TurnIns}}]] = {wdg.eps_paper};
             }}
 
@@ -294,11 +303,11 @@ namespace MTLTestUI
 
             if (false)
             {
-                f.WriteLine($"Air = Region[{{{wdg.phyAir}}}];");
+                f.WriteLine($"Air = Region[{{{tfmr.phyAir}}}];");
             }
             else
             {
-                f.Write($"Air = Region[{{{wdg.phyAir}, ");
+                f.Write($"Air = Region[{{{tfmr.phyAir}, ");
                 firstTurn = true;
                 for (int i = 0; i < wdg.num_turns; i++)
                 {
@@ -349,8 +358,8 @@ namespace MTLTestUI
             f.WriteLine("}];");
             //f.WriteLine($"Ground = Region[{phyGnd}];");
             //Surface_bn0 doesn't appear to do anything (also, surface?)
-            f.WriteLine($"Axis = Region[{wdg.phyAxis}];");
-            f.WriteLine($"Surface_Inf = Region[{wdg.phyInf}];");
+            f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
+            f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
             //f.WriteLine("Vol_C_Mag += Region[{TurnPos, TurnNeg, TurnZero}];");
             f.Write("Turns = Region[{");
             for (int i = 0; i < wdg.num_turns; i++)
@@ -526,7 +535,7 @@ namespace MTLTestUI
             int blkAir = femm.CreateNewBlockProp("Air");
             int blkPaper = femm.CreateNewBlockProp("Paper");
             int blkCu = femm.CreateNewBlockProp("Copper");
-            blockMap[wdg.phyAir] = blkAir;
+            blockMap[tfmr.phyAir] = blkAir;
             int i = 0;
             foreach (var idx in wdg.phyTurnsCond)
             {
@@ -538,7 +547,7 @@ namespace MTLTestUI
             {
                 blockMap[idx] = blkPaper;
             }
-            blockMap[wdg.phyInf] = blkAir;
+            blockMap[tfmr.phyInf] = blkAir;
             int blkAxis = femm.CreateNewBdryProp("Axis");
 
             femm.CreateFromGeometry(geo, blockMap, circMap);

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using TDAP;
+using TfmrLib;
 
 namespace MTLTestUI.ViewModels;
 
@@ -22,11 +23,11 @@ public partial class MainViewModel : ViewModelBase
     {
         _mainModel = new MainModel();
         
-        _mainModel.wdg.num_discs = 1;
-        _mainModel.wdg.turns_per_disc = 2;
+        //_mainModel.wdg.num_discs = 1;
+        //_mainModel.wdg.turns_per_disc = 2;
 
         _mainModel.wdg.eps_paper = 1.5; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
-        _mainModel.tfmr.r_core = 0.0;
+        _mainModel.tfmr.r_core = Conversions.in_to_m(12.1); // 0.0;
         _mainModel.tfmr.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
 
@@ -38,7 +39,7 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.mesh = Mesh;
         Mesh.WriteToTriangleFiles("", "case");
         
-        //_mainModel.CalcCapacitanceMatrix();
+        _mainModel.CalcCapacitanceMatrix();
 
         int num_freqs = 10;
         double min_freq = 10e3;
@@ -50,7 +51,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (freq > 0)
             {
-                _mainModel.CalcInductanceMatrix(freq, 2);
+                //_mainModel.CalcInductanceMatrix(freq, 2);
                 //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //

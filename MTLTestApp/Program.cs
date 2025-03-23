@@ -40,11 +40,14 @@ namespace MTLTestApp
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
-           
+
             //wdgAnalytic.num_discs = 1;
             //wdgAnalytic.turns_per_disc = 2;
             //wdgGetDP.num_discs = 1;
             //wdgGetDP.turns_per_disc = 2;
+            wdgGetDP.ins_loss_factor = 0.02;
+            wdgAnalytic.ins_loss_factor = 0.02;
+            wdgAnalytic.eps_paper = 1.5;
 
             num_turns = wdgAnalytic.num_turns;
 
@@ -347,27 +350,38 @@ namespace MTLTestApp
             var charts = new List<GenericChart>();
 
             List<double> Mag_Z_lumped = [];
+            List<double> Phase_Z_lumped = [];
             foreach (var z in Z_term_lumped)
             {
                 Mag_Z_lumped.Add(20d * Math.Log10(z.Magnitude));
+                Phase_Z_lumped.Add(z.Phase*180.0/Math.PI);
             }
 
             List<double> Mag_Z_analytic = [];
+            List<double> Phase_Z_analytic = [];
             foreach (var z in Z_term_analytic)
             {
                 Mag_Z_analytic.Add(20d * Math.Log10(z.Magnitude));
+                Phase_Z_analytic.Add(z.Phase * 180.0 / Math.PI);
             }
 
             List<double> Mag_Z_getdp = [];
+            List<double> Phase_Z_getdp = [];
             foreach (var z in Z_term_getdp)
             {
                 Mag_Z_getdp.Add(20d * Math.Log10(z.Magnitude));
+                Phase_Z_getdp.Add(z.Phase * 180.0 / Math.PI);
             }
 
             List<double> Mag_Z_measured = [];
+            List<double> Phase_Z_measured = [];
             foreach (var z in impedanceData["CH2 Amplitude(dB)"].Cast<double>().ToList())
             {
                 Mag_Z_measured.Add(20 * Math.Log10(10.2) + z);
+            }
+            foreach (var z in impedanceData["CH2 Phase(Deg)"].Cast<double>().ToList())
+            {
+                Phase_Z_measured.Add(z);
             }
 
 
@@ -378,11 +392,20 @@ namespace MTLTestApp
             var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_lumped, Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
 
             var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_analytic, Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
-
                 
             charts.Add(Plotly.NET.Chart.Combine([chart1, chart3, chart4, chart2]));
 
-            var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable<GenericChart>>(3, 2).Invoke(charts).WithSize(1600, 1200);
+            var chart5 = Chart2D.Chart.Line<double, double, string>(x: impedanceData["Frequency(Hz)"].Cast<double>().ToList(), y: Phase_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
+
+            var chart6 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_getdp, Name: "GetDP/MTL", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
+
+            var chart7 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_lumped, Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
+
+            var chart8 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_analytic, Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
+
+            charts.Add(Plotly.NET.Chart.Combine([chart5, chart6, chart7, chart8]));
+
+            var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable<GenericChart>>(2, 1).Invoke(charts).WithSize(1600, 1200);
 
             // Show the combined chart with subplots
             subplotGrid.Show();

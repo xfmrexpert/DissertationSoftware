@@ -55,34 +55,7 @@ namespace MTLTestUI
             {
                 f.WriteLine($"Turn{i} = Region[{wdg.phyTurnsCondBdry[i]}];");
             }
-            //f.WriteLine($"TurnPos = Region[{phyTurnsCondBdry[posTurn]}];");
-            //if (negTurn >= 0)
-            //{
-            //    f.WriteLine($"TurnNeg = Region[{phyTurnsCondBdry[negTurn]}];");
-            //}
-            //else
-            //{
-            //    f.WriteLine("TurnNeg = Region[{}];");
-            //}
-            //f.Write("TurnZero = Region[{");
-            //bool firstTurn = true;
-            //for (int i = 0; i < phyTurnsCond.Count(); i++)
-            //{
-            //    if ((i != posTurn) && (i != negTurn))
-            //    {
-            //        if (!firstTurn)
-            //        {
-            //            f.Write(", ");
-            //        }
-            //        else
-            //        {
-            //            firstTurn = false;
-            //        }
-            //        f.Write($"{phyTurnsCondBdry[i]}");
-            //    }
-            //}
-
-            //f.Write("}];\n");
+            
             f.Write("TurnIns = Region[{");
             bool firstTurn = true;
             for (int i = 0; i < wdg.phyTurnsIns.Count(); i++)
@@ -100,12 +73,12 @@ namespace MTLTestUI
 
             f.Write("}];\n");
 
-            // f.write(f"Ground = Region[{phyCore}];\n")
+            //f.WriteLine($"Ground = Region[{tfmr.phyCore}];")
             f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
             f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
             f.WriteLine("Vol_Ele = Region[{Air, TurnIns}];");
             f.Write("Sur_C_Ele = Region[{");
-            //f.Write($"Turn{posTurn}}}];");
+            
             for (int i = 0; i < wdg.num_turns; i++)
             {
                 f.Write($"Turn{i}");
@@ -118,7 +91,10 @@ namespace MTLTestUI
                     f.Write("}];\n");
                 }
             }
-            f.WriteLine($"Sur_Neu_Ele = Region[{tfmr.phyAxis}];");
+            if (tfmr.r_core == 0)
+            {
+                f.WriteLine($"Sur_Neu_Ele = Region[{tfmr.phyAxis}];");
+            }
             f.WriteLine("}");
 
             //TODO: Fix for case where posTurn is last turn
@@ -146,7 +122,7 @@ namespace MTLTestUI
             Include ""../../GetDP_Files/Lib_Materials.pro"";
 
             Function {{
-                dn[Region[Axis]] = 0; 
+                {(tfmr.r_core==0 ? "dn[Region[Axis]] = 0;" : "")} 
                 epsr[Region[{{Air}}]] = {tfmr.eps_oil};
                 epsr[Region[{{TurnIns}}]] = {wdg.eps_paper};
             }}
@@ -155,6 +131,7 @@ namespace MTLTestUI
                 {{ Name ElectricScalarPotential; Type Assign;
                     Case {{
                         {{ Region Region[Surface_Inf]; Value 0; }}
+                        {(tfmr.r_core>0 ? "{ Region Region[Axis]; Value 0;}" : "")}
                     }}
                 }}
             }}
@@ -181,13 +158,9 @@ namespace MTLTestUI
             string model = model_prefix + "case";
             string model_msh = "case.msh";
             string model_pro = model + ".pro";
-            double freq = 1e3;
 
             var sb = new StringBuilder();
             Process p = new Process();
-
-            //p.StartInfo.FileName = "cmd.exe";
-            //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{proc} -solve Electrostatics_v -pos Electrostatics_v -v 5";
 
             p.StartInfo.FileName = mygetdp;
             p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir} -solve Electrostatics_v -pos Electrostatics_v -v 5";
@@ -221,13 +194,10 @@ namespace MTLTestUI
                 throw new Exception($"Failed to run getdp in CalcCapacitance for turn {posTurn}");
             }
 
-            (double r, double z) = wdg.GetTurnMidpoint(posTurn);
-
             var resultFile = File.OpenText(model_prefix + "res/q.txt");
             string line = resultFile.ReadLine();
             var C_array = Array.ConvertAll(line.Split().Skip(2).ToArray(), Double.Parse);
             var C = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(C_array);
-            C = C / r;
             resultFile.Close();
             return C;
         }
@@ -236,48 +206,14 @@ namespace MTLTestUI
         {
             Matrix<double> C_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
-            //CalcMesh();
-
-            //for (int i = 0; i < 8; i++)
-            //{
-            //    string procDirectory = Directory.GetCurrentDirectory() + $"/Results/{i}/";
-            //    Directory.CreateDirectory(procDirectory);
-            //    File.Copy("case.msh", procDirectory + "case.msh", true);
-            //}
-
             //Parallel.For(0, num_discs * turns_per_disc, t =>
             //{
             for (int t = 0; t < wdg.num_turns; t++)
             {
-                C_getdp.SetRow(t, CalcCapacitance(t));
-                //Console.WriteLine($"Self capacitance for turn {t}: {C_getdp[t, t]}");
+                (double r, double z) = wdg.GetTurnMidpoint(t);
+                C_getdp.SetRow(t, CalcCapacitance(t)/r);
             }//);
 
-
-            //for (int t1 = 0; t1 < num_discs * turns_per_disc; t1++)
-            //{
-            //    for (int t2 = t1 + 1; t2 < num_discs * turns_per_disc; t2++)
-            //    {
-            //        double W = CalcCapacitance(t1, t2, proc);
-            //        C_getdp[t1, t2] = C_getdp[t2, t1] = (W - (C_getdp[t1, t1] + C_getdp[t2, t2]) / 2) / 1;
-            //        Debug.WriteLine($"Mutual capacitance between turn {t1} & {t2}: {C_getdp[t1, t2]}");
-            //    }
-            //}
-
-            //Parallel.For(0, num_discs * turns_per_disc, t1 =>
-            //{
-            //    Parallel.For(t1+1, num_discs * turns_per_disc, t2 =>
-            //    {
-            //        int proc = Thread.CurrentThread.ManagedThreadId;
-            //        string procDirectory = Directory.GetCurrentDirectory() + $"/Results/{proc}/";
-            //        Directory.CreateDirectory(procDirectory);
-            //        File.Copy("case.msh", procDirectory + "case.msh", true);
-            //        double W = CalcCapacitance(t1, t2, proc);
-            //        C_getdp[t1, t2] = C_getdp[t2, t1] = (W - (C_getdp[t1, t1] + C_getdp[t2, t2]) / 2) / 1;
-            //        Console.WriteLine($"Mutual capacitance between turn {t1} & {t2}: {C_getdp[t1, t2]}");
-            //    });
-            //});
-            //Console.Write((C_getdp / 1e-12).ToMatrixString());
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
         }
 
@@ -463,7 +399,7 @@ namespace MTLTestUI
                 //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
 
-            Console.Write((L_getdp * 2 * Math.PI / 1e-9).ToMatrixString());
+            //Console.Write((L_getdp * 2 * Math.PI / 1e-9).ToMatrixString());
 
             for (int t1 = 0; t1 < wdg.num_turns; t1++)
             {

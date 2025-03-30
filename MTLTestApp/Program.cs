@@ -7,6 +7,7 @@ using Microsoft.Data.Analysis;
 using TfmrLib;
 using Spectre.Console;
 using System.Numerics;
+using MathNet.Numerics;
 
 namespace MTLTestApp
 {
@@ -25,6 +26,83 @@ namespace MTLTestApp
             //await Calc2();
         }
 
+        static void FerasTfmr()
+        {
+            var tfmr = new Transformer();
+            var wdg = new Winding();
+            tfmr.Windings.Add(wdg);
+            wdg.r_inner = 2.27 / (2.0 * Math.PI) - 0.012;
+            wdg.num_discs = 6;
+            wdg.turns_per_disc = 6;
+            wdg.h_cond = 0.012;
+            wdg.t_cond = 0.003;
+            wdg.t_ins = 0.0005;
+            wdg.h_spacer = 6;
+            wdg.dist_wdg_tank_bottom = 0.040;
+            wdg.dist_wdg_tank_right = 0.040;
+            wdg.dist_wdg_tank_top = 0.040;
+        }
+
+        static async Task RunTasksWithProgress(Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>> taskDefinitions, List<DataFrame> measuredResponses, DataFrame measuredImpedances)
+        {
+            var tasks = new List<Task<(List<Complex>, List<Complex[]>)>>();
+
+            // Use Spectre.Console's Progress
+            await AnsiConsole.Progress()
+                .AutoClear(false) // Keep the progress bars after completion
+                .HideCompleted(false)
+                .Columns(new ProgressColumn[]
+                {
+                        new TaskDescriptionColumn(),    // Task description
+                        new ProgressBarColumn(),        // Progress bar
+                        new PercentageColumn(),         // Percentage completed
+                        new RemainingTimeColumn(),      // Remaining time
+                })
+                .StartAsync(async ctx =>
+                {
+                    foreach (var taskDefinition in taskDefinitions)
+                    {
+                        var taskName = taskDefinition.Key;
+                        var taskFunc = taskDefinition.Value;
+
+                        var progressTask = ctx.AddTask(taskName, maxValue: 100);
+
+                        var progress = new Progress<int>(percent =>
+                        {
+                            progressTask.Value = percent;
+                        });
+
+                        var task = Task.Run(async () =>
+                        {
+                            var result = await taskFunc(progress);
+                            progressTask.Value = 100; // Ensure completion
+                            return result;
+                        });
+
+                        tasks.Add(task);
+                    }
+
+                    // Wait for all tasks to complete
+                    await Task.WhenAll(tasks);
+                });
+
+            var results = await Task.WhenAll(tasks);
+            var calculatedResponses = new Dictionary<string, List<Complex[]>>();
+            var calculatedImpedances = new Dictionary<string, List<Complex>>();
+
+            int index = 0;
+            foreach (var taskDefinition in taskDefinitions)
+            {
+                calculatedImpedances[taskDefinition.Key] = results[index].Item1;
+                calculatedResponses[taskDefinition.Key] = results[index].Item2;
+                index++;
+            }
+
+            ShowPlots(measuredResponses, calculatedResponses);
+            ShowPlots_Z(measuredImpedances, calculatedImpedances);
+            Show3DPlot(calculatedResponses.First().Value);
+        }
+
         static async Task Calc1()
         {
             min_freq = 10e3;
@@ -41,96 +119,31 @@ namespace MTLTestApp
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
 
-            //wdgAnalytic.num_discs = 1;
-            //wdgAnalytic.turns_per_disc = 2;
-            //wdgGetDP.num_discs = 1;
-            //wdgGetDP.turns_per_disc = 2;
             wdgGetDP.ins_loss_factor = 0.02;
             wdgAnalytic.ins_loss_factor = 0.02;
             wdgAnalytic.eps_paper = 1.5;
 
             num_turns = wdgAnalytic.num_turns;
 
-            var tasks = new List<Task>();
-
             var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
             var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(wdgGetDP, min_freq, max_freq, num_freqs);
 
-            wdgGetDP.Rs = 0.0;
-            wdgGetDP.Rl = 0.0;
+            wdgGetDP.Rs = 50.0;
+            wdgGetDP.Rl = 50.0;
+            wdgGetDP.Ll = 1e-3;
 
-            List<double[]> V_response_getdp = null;
-            List<double[]> V_response_analytic = null;
-            List<double[]> V_response_lumped = null;
-            List<Complex> Z_term_getdp = null;
-            List<Complex> Z_term_analytic = null;
-            List<Complex> Z_term_lumped = null;
-
-            // Use Spectre.Console's Progress
-            await AnsiConsole.Progress()
-                .AutoClear(false) // Keep the progress bars after completion
-                .HideCompleted(false)
-                .Columns(new ProgressColumn[]
+            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
                 {
-                    new TaskDescriptionColumn(),    // Task description
-                    new ProgressBarColumn(),        // Progress bar
-                    new PercentageColumn(),         // Percentage completed
-                    new RemainingTimeColumn(),      // Remaining time
-                    //new SpinnerColumn(),            // Spinner
-                })
-                .StartAsync(async ctx =>
-                {
-                    // Define tasks in Spectre.Console's progress context
-                    var getdpTask = ctx.AddTask("MTL Model w/ GetDP LCs", maxValue: 100);
-                    var analyticTask = ctx.AddTask("MTL Model w/ Analytic LCs", maxValue: 100);
-                    var lumpedTask = ctx.AddTask("Lumped Model w/ GetDP LCs", maxValue: 100);
+                    { "MTL Model w/ GetDP LCs", async progress => getDPModel.CalcResponse(progress) },
+                    { "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
+                    { "Lumped Model w/ GetDP LCs", async progress => lumpedModel.CalcResponse(progress) }
+                };
 
-                    // Create IProgress<int> instances linked to Spectre.Console tasks
-                    var progressGetDP = new Progress<int>(percent =>
-                    {
-                        getdpTask.Value = percent;
-                    });
+            await RunTasksWithProgress(taskDefinitions, measuredData, impedanceData);
 
-                    var progressAnalytic = new Progress<int>(percent =>
-                    {
-                        analyticTask.Value = percent;
-                    });
+            var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
-                    var progressLumped = new Progress<int>(percent =>
-                    {
-                        lumpedTask.Value = percent;
-                    });
-
-                    // Start the tasks
-                    var task1 = Task.Run(() =>
-                    {
-                        (Z_term_getdp, V_response_getdp) = getDPModel.CalcResponse(progressGetDP);
-                        getdpTask.Value = 100; // Ensure completion
-                    });
-
-                    var task2 = Task.Run(() =>
-                    {
-                        (Z_term_analytic, V_response_analytic) = analyticModel.CalcResponse(progressAnalytic);
-                        analyticTask.Value = 100; // Ensure completion
-                    });
-
-                    var task3 = Task.Run(() =>
-                    {
-                        (Z_term_lumped, V_response_lumped) = lumpedModel.CalcResponse(progressLumped);
-                        lumpedTask.Value = 100; // Ensure completion
-                    });
-
-                    tasks.Add(task1);
-                    tasks.Add(task2);
-                    tasks.Add(task3);
-
-                    // Wait for all tasks to complete
-                    await Task.WhenAll(tasks);
-                });
-
-            ShowPlots(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
-            ShowPlots_Z(impedanceData, Z_term_analytic, Z_term_lumped, Z_term_getdp);
             AnsiConsole.MarkupLine("[bold green]All tasks completed successfully![/]");
         }
 
@@ -145,100 +158,31 @@ namespace MTLTestApp
             string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
 
             var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
+            var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
 
             var wdgAnalytic = new WindingAnalytic();
-            //var wdgGetDP = new WindingExtModel(directoryPath);
 
             wdgAnalytic.num_discs = 1;
             wdgAnalytic.turns_per_disc = 2;
-            //wdgGetDP.num_discs = 1;
-            //wdgGetDP.turns_per_disc = 2;
 
             num_turns = wdgAnalytic.num_turns;
 
-            var tasks = new List<Task>();
-
             var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
-            //var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(wdgAnalytic, min_freq, max_freq, num_freqs);
 
-            List<double[]> V_response_getdp = null;
-            List<double[]> V_response_analytic = null;
-            List<double[]> V_response_lumped = null;
-            List<Complex> Z_term_getdp = null;
-            List<Complex> Z_term_analytic = null;
-            List<Complex> Z_term_lumped = null;
-
-            // Use Spectre.Console's Progress
-            await AnsiConsole.Progress()
-                .AutoClear(false) // Keep the progress bars after completion
-                .HideCompleted(false)
-                .Columns(new ProgressColumn[]
+            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
                 {
-                    new TaskDescriptionColumn(),    // Task description
-                    new ProgressBarColumn(),        // Progress bar
-                    new PercentageColumn(),         // Percentage completed
-                    new RemainingTimeColumn(),      // Remaining time
-                    //new SpinnerColumn(),            // Spinner
-                })
-                .StartAsync(async ctx =>
-                {
-                    // Define tasks in Spectre.Console's progress context
-                    //var getdpTask = ctx.AddTask("MTL Model w/ GetDP LCs", maxValue: 100);
-                    var analyticTask = ctx.AddTask("MTL Model w/ Analytic LCs", maxValue: 100);
-                    var lumpedTask = ctx.AddTask("Lumped Model w/ Analytic LCs", maxValue: 100);
+                    { "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
+                    { "Lumped Model w/ Analytic LCs", async progress => lumpedModel.CalcResponse(progress) }
+                };
 
-                    // Create IProgress<int> instances linked to Spectre.Console tasks
-                    //var progressGetDP = new Progress<int>(percent =>
-                    //{
-                    //    getdpTask.Value = percent;
-                    //});
+            await RunTasksWithProgress(taskDefinitions, measuredData, impedanceData);
 
-                    var progressAnalytic = new Progress<int>(percent =>
-                    {
-                        analyticTask.Value = percent;
-                    });
-
-                    var progressLumped = new Progress<int>(percent =>
-                    {
-                        lumpedTask.Value = percent;
-                    });
-
-                    // Start the tasks
-                    //var task1 = Task.Run(() =>
-                    //{
-                    //    V_response_getdp = getDPModel.CalcResponse(progressGetDP);
-                    //    getdpTask.Value = 100; // Ensure completion
-                    //});
-
-                    var task2 = Task.Run(() =>
-                    {
-                        (Z_term_analytic, V_response_analytic) = analyticModel.CalcResponse(progressAnalytic);
-                        analyticTask.Value = 100; // Ensure completion
-                    });
-
-                    var task3 = Task.Run(() =>
-                    {
-                        (Z_term_lumped, V_response_lumped) = lumpedModel.CalcResponse(progressLumped);
-                        lumpedTask.Value = 100; // Ensure completion
-                    });
-
-                    //tasks.Add(task1);
-                    tasks.Add(task2);
-                    tasks.Add(task3);
-
-                    // Wait for all tasks to complete
-                    await Task.WhenAll(tasks);
-                });
-
-            ShowPlots2(measuredData, V_response_getdp, V_response_analytic, V_response_lumped);
-            ShowPlots_Z(null, Z_term_analytic, Z_term_lumped);
             AnsiConsole.MarkupLine("[bold green]All tasks completed successfully![/]");
         }
 
-        public static void ShowPlots(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic, List<double[]> V_response_lumped)
+        public static void ShowPlots(List<DataFrame> measuredData, Dictionary<string, List<Complex[]>> calculatedResponses)
         {
-            //var freqs = Generate.LinearSpaced(num_freqs, min_freq, max_freq);
             var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
             LinearAxis xAxis = new LinearAxis();
@@ -257,78 +201,37 @@ namespace MTLTestApp
             layout.SetValue("yaxis", yAxis);
             layout.SetValue("showlegend", true);
 
+            var colors = new[] { "Green", "Blue", "Red", "Orange", "Purple", "Brown" };
+            
+
             var charts = new List<GenericChart>();
             int i = 0;
-            // Voltages are given at the END of turn t
-            for (int t = 39; t < (num_turns - 1); t=t+40)
+            for (int t = 39; t < (num_turns - 1); t = t + 40)
             {
-                var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
+                int colorIndex = 0;
+                var combinedCharts = new List<GenericChart>();
 
-                var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
+                var measuredChart = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+                colorIndex++;
+                combinedCharts.Add(measuredChart);
 
-                var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
-
-                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
+                foreach (var response in calculatedResponses)
+                {
+                    var calculatedChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: response.Value[t].Select(c => 20d * Math.Log10(c.Magnitude)), Name: response.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+                    colorIndex++;
+                    combinedCharts.Add(calculatedChart);
+                }
 
                 i++;
-
-                charts.Add(Plotly.NET.Chart.Combine([chart1, chart2, chart3, chart4]).WithTitle($"Turn {t}"));
+                charts.Add(Plotly.NET.Chart.Combine(combinedCharts).WithTitle($"Turn {t}"));
             }
 
             var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable<GenericChart>>(3, 2).Invoke(charts).WithSize(1600, 1200);
-
-            // Show the combined chart with subplots
             subplotGrid.Show();
         }
 
-        public static void ShowPlots2(List<DataFrame> measuredData, List<double[]> V_response_getdp, List<double[]> V_response_analytic, List<double[]> V_response_lumped)
+        public static void ShowPlots_Z(DataFrame measuredData, Dictionary<string, List<Complex>> calculatedImpedances)
         {
-            //var freqs = Generate.LinearSpaced(num_freqs, min_freq, max_freq);
-            var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
-
-            LinearAxis xAxis = new LinearAxis();
-            xAxis.SetValue("title", "xAxis");
-            xAxis.SetValue("showgrid", false);
-            xAxis.SetValue("showline", true);
-            xAxis.SetValue("type", "log");
-
-            LinearAxis yAxis = new LinearAxis();
-            yAxis.SetValue("title", "yAxis");
-            yAxis.SetValue("showgrid", false);
-            yAxis.SetValue("showline", true);
-
-            Plotly.NET.Layout layout = new Plotly.NET.Layout();
-            layout.SetValue("xaxis", xAxis);
-            layout.SetValue("yaxis", yAxis);
-            layout.SetValue("showlegend", true);
-
-            var charts = new List<GenericChart>();
-            int i = 0;
-            // Voltages are given at the END of turn t
-            for (int t = 0; t < (num_turns-1); t++)
-            {
-                //var chart1 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_getdp[t], Name: "Calculated", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
-                
-                //var chart2 = Chart2D.Chart.Line<double, double, string>(x: measuredData[i]["Frequency(Hz)"].Cast<double>().ToList(), y: measuredData[i]["CH2 Amplitude(dB)"].Cast<double>().ToList(), Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
-                
-                var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_lumped[t], Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
-
-                var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: V_response_analytic[t], Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
-
-                i++;
-
-                charts.Add(Plotly.NET.Chart.Combine([/*chart1, chart2, */chart3, chart4]).WithTitle($"Turn {t}"));
-            }
-
-            var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable <GenericChart>> (3, 2).Invoke(charts).WithSize(1600, 1200);
-
-            // Show the combined chart with subplots
-            subplotGrid.Show();
-        }
-
-        public static void ShowPlots_Z(DataFrame impedanceData, List<Complex> Z_term_analytic, List<Complex> Z_term_lumped, List<Complex> Z_term_getdp=null)
-        {
-            //var freqs = Generate.LinearSpaced(num_freqs, min_freq, max_freq);
             var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
             LinearAxis xAxis = new LinearAxis();
@@ -349,66 +252,70 @@ namespace MTLTestApp
 
             var charts = new List<GenericChart>();
 
-            List<double> Mag_Z_lumped = [];
-            List<double> Phase_Z_lumped = [];
-            foreach (var z in Z_term_lumped)
+            var combinedMagCharts = new List<GenericChart>();
+            var combinedPhaseCharts = new List<GenericChart>();
+
+            var colors = new[] { "Green", "Blue", "Red", "Orange", "Purple", "Brown" };
+            int colorIndex = 0;
+            
+            List<double> Mag_Z_measured = measuredData["CH2 Amplitude(dB)"].Cast<double>().Select(z => 20 * Math.Log10(10.2) + z).ToList();
+            List<double> Phase_Z_measured = measuredData["CH2 Phase(Deg)"].Cast<double>().ToList();
+
+            var measuredMagChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Mag_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+            var measuredPhaseChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Phase_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+            combinedMagCharts.Add(measuredMagChart);
+            combinedPhaseCharts.Add(measuredPhaseChart);
+            colorIndex++;
+
+            foreach (var impedance in calculatedImpedances)
             {
-                Mag_Z_lumped.Add(20d * Math.Log10(z.Magnitude));
-                Phase_Z_lumped.Add(z.Phase*180.0/Math.PI);
+                List<double> Mag_Z_calculated = impedance.Value.Select(z => 20d * Math.Log10(z.Magnitude)).ToList();
+                List<double> Phase_Z_calculated = impedance.Value.Select(z => z.Phase * 180.0 / Math.PI).ToList();
+
+                var calculatedMagChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_calculated, Name: impedance.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+                var calculatedPhaseChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_calculated, Name: impedance.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+
+                combinedMagCharts.Add(calculatedMagChart);
+                combinedPhaseCharts.Add(calculatedPhaseChart);
+
+                colorIndex++;
             }
 
-            List<double> Mag_Z_analytic = [];
-            List<double> Phase_Z_analytic = [];
-            foreach (var z in Z_term_analytic)
-            {
-                Mag_Z_analytic.Add(20d * Math.Log10(z.Magnitude));
-                Phase_Z_analytic.Add(z.Phase * 180.0 / Math.PI);
-            }
-
-            List<double> Mag_Z_getdp = [];
-            List<double> Phase_Z_getdp = [];
-            foreach (var z in Z_term_getdp)
-            {
-                Mag_Z_getdp.Add(20d * Math.Log10(z.Magnitude));
-                Phase_Z_getdp.Add(z.Phase * 180.0 / Math.PI);
-            }
-
-            List<double> Mag_Z_measured = [];
-            List<double> Phase_Z_measured = [];
-            foreach (var z in impedanceData["CH2 Amplitude(dB)"].Cast<double>().ToList())
-            {
-                Mag_Z_measured.Add(20 * Math.Log10(10.2) + z);
-            }
-            foreach (var z in impedanceData["CH2 Phase(Deg)"].Cast<double>().ToList())
-            {
-                Phase_Z_measured.Add(z);
-            }
-
-
-            var chart1 = Chart2D.Chart.Line<double, double, string>(x: impedanceData["Frequency(Hz)"].Cast<double>().ToList(), y: Mag_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
-
-            var chart2 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_getdp, Name: "GetDP/MTL", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
-
-            var chart4 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_lumped, Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
-
-            var chart3 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_analytic, Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
-                
-            charts.Add(Plotly.NET.Chart.Combine([chart1, chart3, chart4, chart2]));
-
-            var chart5 = Chart2D.Chart.Line<double, double, string>(x: impedanceData["Frequency(Hz)"].Cast<double>().ToList(), y: Phase_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString("Blue")).WithLayout(layout);
-
-            var chart6 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_getdp, Name: "GetDP/MTL", LineColor: Plotly.NET.Color.fromString("Red")).WithLayout(layout);
-
-            var chart7 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_lumped, Name: "Lumped", LineColor: Plotly.NET.Color.fromString("Green")).WithLayout(layout);
-
-            var chart8 = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_analytic, Name: "Analytic", LineColor: Plotly.NET.Color.fromString("Orange")).WithLayout(layout);
-
-            charts.Add(Plotly.NET.Chart.Combine([chart5, chart6, chart7, chart8]));
+            charts.Add(Plotly.NET.Chart.Combine(combinedMagCharts));
+            charts.Add(Plotly.NET.Chart.Combine(combinedPhaseCharts));
 
             var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable<GenericChart>>(2, 1).Invoke(charts).WithSize(1600, 1200);
-
-            // Show the combined chart with subplots
             subplotGrid.Show();
+        }
+
+        public static void Show3DPlot(List<Complex[]> calculatedResponses)
+        {
+            var numTurns = calculatedResponses.Count;
+            var turns = MathNet.Numerics.Generate.LinearSpaced(numTurns, 0, numTurns-1);
+            var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
+            List<double> x = new List<double>();
+            List<double> y = new List<double>();
+            List<double> z = new List<double>();
+            foreach (var turn in turns)
+            {
+                int i = 0;
+                foreach (var freq in freqs)
+                {
+                    var response = calculatedResponses[(int)turn][i];
+                    var mag = response.Magnitude;
+                    var phase = response.Phase;
+                    x.Add(turn);
+                    y.Add(freq);
+                    z.Add(mag);
+                    i++;
+                }
+            }
+            var chart = Chart3D.Chart.Mesh3D<double, double, double, double, double, double, double>(
+                x: x,
+                y: y,
+                z: z
+            ).WithTitle("3D Plot");
+            chart.Show();
         }
 
         static void DisplayMatrixAsTable(Matrix<double> matrix)

@@ -39,7 +39,7 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.mesh = Mesh;
         Mesh.WriteToTriangleFiles("", "case");
         
-        _mainModel.CalcCapacitanceMatrix();
+        //_mainModel.CalcCapacitanceMatrix();
 
         int num_freqs = 10;
         double min_freq = 10e3;
@@ -47,11 +47,11 @@ public partial class MainViewModel : ViewModelBase
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
         //_mainModel.CalcInductanceMatrix(60, 2);
         //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        foreach (var freq in (List<double>)[100, 120, 1e3, 10e3, 100e3])
+        foreach (var freq in (List<double>)[60, 120, 1e3, 10e3, 100e3, 1e6])
         {
             if (freq > 0)
             {
-                //_mainModel.CalcInductanceMatrix(freq, 2);
+                _mainModel.CalcInductanceMatrix(freq, 2);
                 //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //

@@ -8,6 +8,7 @@ using TfmrLib;
 using Spectre.Console;
 using System.Numerics;
 using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace MTLTestApp
 {
@@ -114,14 +115,16 @@ namespace MTLTestApp
             string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
 
             var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
-            var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
+            var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\dissertation\inductance_comparison\measured\fullwdg_impedance");
+
+            Show3DPlot_Meas(measuredData);
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
 
-            wdgGetDP.ins_loss_factor = 0.02;
+            wdgGetDP.ins_loss_factor = 0.03;
             wdgAnalytic.ins_loss_factor = 0.02;
-            wdgAnalytic.eps_paper = 1.5;
+            wdgAnalytic.eps_paper = 2.0;
 
             num_turns = wdgAnalytic.num_turns;
 
@@ -129,15 +132,19 @@ namespace MTLTestApp
             var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(wdgGetDP, min_freq, max_freq, num_freqs);
 
-            wdgGetDP.Rs = 50.0;
-            wdgGetDP.Rl = 50.0;
-            wdgGetDP.Ll = 1e-3;
+            wdgGetDP.Rs = 0;
+            wdgGetDP.Ls = 1.5e-6;
+            wdgGetDP.Rl = 10.5;
+            wdgGetDP.Ll = 1.5e-6;
+            wdgGetDP.InductanceFudgeFactor = 1.18;
+            wdgGetDP.CapacitanceFudgeFactor = 1.02;
+            wdgGetDP.ResistanceFudgeFactor = 1.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
                 {
                     { "MTL Model w/ GetDP LCs", async progress => getDPModel.CalcResponse(progress) },
-                    { "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
-                    { "Lumped Model w/ GetDP LCs", async progress => lumpedModel.CalcResponse(progress) }
+                    //{ "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
+                    //{ "Lumped Model w/ GetDP LCs", async progress => lumpedModel.CalcResponse(progress) }
                 };
 
             await RunTasksWithProgress(taskDefinitions, measuredData, impedanceData);
@@ -291,30 +298,77 @@ namespace MTLTestApp
         public static void Show3DPlot(List<Complex[]> calculatedResponses)
         {
             var numTurns = calculatedResponses.Count;
-            var turns = MathNet.Numerics.Generate.LinearSpaced(numTurns, 0, numTurns-1);
+            var turns = MathNet.Numerics.Generate.LinearSpaced(numTurns, 0, numTurns - 1);
             var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
             List<double> x = new List<double>();
             List<double> y = new List<double>();
-            List<double> z = new List<double>();
+            List<List<double>> z = new List<List<double>>();
             foreach (var turn in turns)
             {
                 int i = 0;
+                var zRow = new List<double>();
                 foreach (var freq in freqs)
                 {
                     var response = calculatedResponses[(int)turn][i];
-                    var mag = response.Magnitude;
-                    var phase = response.Phase;
                     x.Add(turn);
                     y.Add(freq);
-                    z.Add(mag);
+                    zRow.Add(response.Magnitude);
                     i++;
                 }
+                z.Add(zRow);
             }
-            var chart = Chart3D.Chart.Mesh3D<double, double, double, double, double, double, double>(
-                x: x,
-                y: y,
-                z: z
-            ).WithTitle("3D Plot");
+            
+            var chart = Chart3D.Chart.Surface<IEnumerable<double>, double, double, double, double>(
+                zData: z,
+                X: freqs,
+                Y: turns
+            ).WithTitle("3D Plot").WithSize(1600, 1200);
+            chart.Show();
+        }
+
+        public static void Show3DPlot_Meas(List<DataFrame> measuredResponses)
+        {
+            var freqs = measuredResponses[0]["Frequency(Hz)"].Cast<double>().ToList(); //MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
+            List<double> x = new List<double>();
+            List<double> y = new List<double>();
+            List<List<double>> z = new List<List<double>>();
+            var zRow = new List<double>();
+            y.Add(0);
+            foreach (var freq in freqs)
+            {
+                zRow.Add(1.0);
+                x.Add(freq);
+            }
+            z.Add(zRow);
+            for (int turn = 0; turn < measuredResponses.Count; turn++)
+            {
+                int i = 0;
+                zRow = new List<double>();
+                y.Add(-1 + 40 * (turn + 1));
+                foreach (var freq in freqs)
+                {
+                    var response = measuredResponses[turn]["CH2 Amplitude(dB)"].Cast<double>().Select(v => Math.Pow(10, v / 20)).ToList()[i];
+                    
+                    //x.Add(freq);
+                    zRow.Add(response);
+                    i++;
+                }
+                z.Add(zRow);
+            }
+            zRow = new List<double>();
+            y.Add(279);
+            foreach (var freq in freqs)
+            {
+                zRow.Add(0.0);
+                //x.Add(freq);
+            }
+            z.Add(zRow);
+
+            var chart = Chart3D.Chart.Surface<IEnumerable<double>, double, double, double, double>(
+                zData: z//,
+                //X: x,
+                //Y: y
+            ).WithTitle("3D Plot").WithSize(1600, 1200);
             chart.Show();
         }
 

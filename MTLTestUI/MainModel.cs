@@ -227,7 +227,6 @@ namespace MTLTestUI
             }
             string model_prefix = $"./Results/{dir}/";
             Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
-#if true
 
             var f = File.CreateText($"Results/{dir}/case.pro");
 
@@ -320,16 +319,12 @@ namespace MTLTestUI
             string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
             string mygetdp = onelab_dir + "getdp.exe";
             
-
             string model = model_prefix + "case";
             string model_msh = "case.msh";
             string model_pro = model + ".pro";
 
             var sb = new StringBuilder();
             Process p = new Process();
-
-            //p.StartInfo.FileName = "cmd.exe";
-            //p.StartInfo.Arguments = "/k " + mygetdp + " " + model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -setnumber freq " + freq.ToString() + " -solve Magnetodynamics2D_av -pos dyn -v 5";
 
             p.StartInfo.FileName = mygetdp;
             p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
@@ -362,25 +357,16 @@ namespace MTLTestUI
             {
                 throw new Exception($"Failed to run getdp in CalcInductance for turn {posTurn}");
             }
-#endif
+
             (double r, double z) = wdg.GetTurnMidpoint(posTurn);
 
-            //with open(model_prefix +'L_s/res/out.txt') as f:
-            //    line = f.readline()
-            //    ind = float(line.split()[1])
-            //return 2 * math.pi * ind
-
-            //var resultFile = File.OpenText(model_prefix + "out.txt");
-            //string line = resultFile.ReadLine();
-            //var ind = double.Parse(line.Split()[2]);
-            //resultFile.Close();
-            //return ind;
-
             var resultFile = File.OpenText(model_prefix + "out.txt");
-            string line = resultFile.ReadLine();
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
             var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
+
             var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
             resultFile.Close();
+
             return L;
         }
 
@@ -388,18 +374,14 @@ namespace MTLTestUI
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
-            //Console.WriteLine($"Frequency: {freq.ToString("0.##E0")}");
-            //CalcMesh();
-
             //Parallel.For(0, n_turns, t =>
             for (int t = 0; t < wdg.num_turns; t++)
             {
                 L_getdp.SetRow(t, CalcInductance(t, -1, freq, order));
                 (double r, double z) = wdg.GetTurnMidpoint(t);
-                //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
 
-            //Console.Write((L_getdp * 2 * Math.PI / 1e-9).ToMatrixString());
+            Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum()/1000.0}mH\n");
 
             for (int t1 = 0; t1 < wdg.num_turns; t1++)
             {
@@ -409,8 +391,6 @@ namespace MTLTestUI
                     L_getdp[t1, t2] = L_getdp[t1, t2] / r;
                 }
             }
-
-            //Console.Write((L_getdp/1e-9).ToMatrixString());
 
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }

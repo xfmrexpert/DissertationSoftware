@@ -50,7 +50,8 @@ namespace MTLTestUI
             var f = File.CreateText($"Results/{dir}/case.pro");
             f.WriteLine($"FE_Order = {order};");
             f.WriteLine("Group{");
-            f.WriteLine($"Air = Region[{tfmr.phyAir}];");
+            f.WriteLine($"Air = Region[{{{tfmr.phyAir}, {tfmr.phyAir2}}}];");
+            f.WriteLine($"Core = Region[{tfmr.phyCore}];");
             for (int i = 0; i < wdg.num_turns; i++)
             {
                 f.WriteLine($"Turn{i} = Region[{wdg.phyTurnsCondBdry[i]}];");
@@ -77,7 +78,7 @@ namespace MTLTestUI
             f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
             f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
             f.WriteLine("Vol_Ele = Region[{Air, TurnIns}];");
-            f.Write("Sur_C_Ele = Region[{");
+            f.Write("Sur_C_Ele = Region[{Core, ");
             
             for (int i = 0; i < wdg.num_turns; i++)
             {
@@ -236,28 +237,24 @@ namespace MTLTestUI
 
             bool firstTurn;
 
-            if (false)
+            f.WriteLine($"Core = Region[{tfmr.phyCore}];");
+
+            f.Write($"Air = Region[{{{tfmr.phyAir}, {tfmr.phyAir2}, ");
+            firstTurn = true;
+            for (int i = 0; i < wdg.num_turns; i++)
             {
-                f.WriteLine($"Air = Region[{{{tfmr.phyAir}}}];");
-            }
-            else
-            {
-                f.Write($"Air = Region[{{{tfmr.phyAir}, ");
-                firstTurn = true;
-                for (int i = 0; i < wdg.num_turns; i++)
+                if (!firstTurn)
                 {
-                    if (!firstTurn)
-                    {
-                        f.Write(", ");
-                    }
-                    else
-                    {
-                        firstTurn = false;
-                    }
-                    f.Write($"{wdg.phyTurnsIns[i]}");
+                    f.Write(", ");
                 }
-                f.WriteLine("}];");
+                else
+                {
+                    firstTurn = false;
+                }
+                f.Write($"{wdg.phyTurnsIns[i]}");
             }
+            f.WriteLine("}];");
+            
 
             for (int i = 0; i < wdg.num_turns; i++)
             {
@@ -309,8 +306,8 @@ namespace MTLTestUI
                     f.Write("}];\n");
                 }
             }
-            f.WriteLine("Vol_Mag += Region[{Air, Turns, Surface_Inf}];");
-            f.WriteLine("Vol_C_Mag = Region[{Turns}];");
+            f.WriteLine("Vol_Mag += Region[{Air, Core, Turns, Surface_Inf}];");
+            f.WriteLine("Vol_C_Mag = Region[{Turns, Core}];");
             f.WriteLine("}");
             f.WriteLine($"Freq={freq};");
             f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
@@ -364,7 +361,7 @@ namespace MTLTestUI
             string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
             var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
 
-            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
+            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array.Skip(1).ToArray());
             resultFile.Close();
 
             return L;
@@ -381,7 +378,7 @@ namespace MTLTestUI
                 (double r, double z) = wdg.GetTurnMidpoint(t);
             }
 
-            Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum()/1000.0}mH\n");
+            Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum()*1000.0}mH\n");
 
             for (int t1 = 0; t1 < wdg.num_turns; t1++)
             {
@@ -451,6 +448,7 @@ namespace MTLTestUI
             int blkAir = femm.CreateNewBlockProp("Air");
             int blkPaper = femm.CreateNewBlockProp("Paper");
             int blkCu = femm.CreateNewBlockProp("Copper");
+            int blkCore = femm.CreateNewBlockProp("Core");
             blockMap[tfmr.phyAir] = blkAir;
             int i = 0;
             foreach (var idx in wdg.phyTurnsCond)
@@ -459,11 +457,16 @@ namespace MTLTestUI
                 circMap[idx] = i;
                 i++;
             }
+            circMap[tfmr.phyCore] = i;
+
             foreach (var idx in wdg.phyTurnsIns)
             {
                 blockMap[idx] = blkPaper;
             }
             blockMap[tfmr.phyInf] = blkAir;
+            blockMap[tfmr.phyAir2] = blkAir;
+            blockMap[tfmr.phyCore] = blkCore;
+
             int blkAxis = femm.CreateNewBdryProp("Axis");
 
             femm.CreateFromGeometry(geo, blockMap, circMap);
@@ -475,6 +478,9 @@ namespace MTLTestUI
             femm.BlockProps[blkCu].Mu_x = 1.0f;
             femm.BlockProps[blkCu].Mu_y = 1.0f;
             femm.BlockProps[blkCu].Sigma = 58f;
+            femm.BlockProps[blkCore].Mu_x = 1.0f;
+            femm.BlockProps[blkCore].Mu_y = 1.0f;
+            femm.BlockProps[blkCore].Sigma = 25f;
 
             femm.BdryProps[blkAxis].BdryType = FEMMBdryType.prescribedA;
             femm.BdryProps[blkAxis].A_0 = 0.0f;
@@ -482,6 +488,7 @@ namespace MTLTestUI
             femm.BdryProps[blkAxis].A_2 = 0.0f;
 
             femm.CircuitProps[turn].TotalAmps_re = 1.0f;
+            femm.CircuitProps[circMap[tfmr.phyCore]].TotalAmps_re = 0.0f;
 
             // TODO: Don't hard code this shit you lazy twat
             femm.ToFile("case.fem");
@@ -502,8 +509,11 @@ namespace MTLTestUI
                         double.TryParse(match.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double real) &&
                         double.TryParse(match.Groups[2].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out double imaginary))
                     {
-                        inductances[t] = real / (2 * Math.PI);
-                        t++;
+                        if (t < inductances.Count)
+                        {
+                            inductances[t] = real / (2 * Math.PI);
+                            t++;
+                        }
                     }
                     else
                     {

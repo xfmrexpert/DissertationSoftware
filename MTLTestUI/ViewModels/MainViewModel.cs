@@ -47,12 +47,12 @@ public partial class MainViewModel : ViewModelBase
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
         //_mainModel.CalcInductanceMatrix(60, 2);
         //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        foreach (var freq in (List<double>)[60, 120, 1e3, 10e3, 100e3, 1e6])
+        foreach (var freq in (List<double>)[10e3, 100e3])
         {
             if (freq > 0)
             {
-                _mainModel.CalcInductanceMatrix(freq, 2);
-                //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
+                //_mainModel.CalcInductanceMatrix(freq, 2);
+                _mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //
         }

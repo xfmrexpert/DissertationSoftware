@@ -5,11 +5,12 @@ Flag_FrequencyDomain = 1;
 
 Function {
   mu0 = 4.e-7 * Pi;
-  nu [ Region[{Air, Turns, Surface_Inf}] ] = 1. / mu0;
-  mu [ Region[{Air, Turns, Surface_Inf}] ] = mu0;
+  nu [ Region[{Air, Core, Turns, Surface_Inf}] ] = 1. / mu0;
+  mu [ Region[{Air, Core, Turns, Surface_Inf}] ] = mu0;
   Sc[Region[{Turns}]] = SurfaceArea[] ; // area of coil cross section
   sigma[Region[{Turns}]] = 5.80e7; //Conductivity of annealed copper
-  CoefGeos[Region[{Air, Turns, Surface_Inf}]] = 2*Pi; // planar model, 1 meter thick
+  sigma[Region[{Core}]] = 0.5e6; //Conductivity of the core (aluminum sheet)
+  CoefGeos[Region[{Air, Core, Turns, Surface_Inf}]] = 2*Pi; // planar model, 1 meter thick
 }
 
 Constraint{
@@ -25,6 +26,7 @@ Constraint{
         // Amplitude of the phasor is set to "Current"
         { Region TurnPos; Value 1.0; }
         { Region TurnZero; Value 0.0; }
+        { Region Core; Value 0.0; }
         { Region TurnNeg; Value -1.0; }
     }
   }

@@ -112,12 +112,12 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
+            string directoryPath = @".\PULImpedances\NoCore"; // Specify the directory path
 
-            var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
-            var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\dissertation\inductance_comparison\measured\fullwdg_impedance");
+            var measuredData = ReadMeasuredData(@".\Measured\NoCore");
+            var impedanceData = ReadImpedanceData(@".\Measured\NoCore");
 
-            Show3DPlot_Meas(measuredData);
+            //Show3DPlot_Meas(measuredData);
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
@@ -136,8 +136,9 @@ namespace MTLTestApp
             wdgGetDP.Ls = 1.5e-6;
             wdgGetDP.Rl = 10.5;
             wdgGetDP.Ll = 1.5e-6;
-            wdgGetDP.InductanceFudgeFactor = 1.18;
-            wdgGetDP.CapacitanceFudgeFactor = 1.02;
+            wdgGetDP.InductanceFudgeFactor = 1.0;
+            wdgGetDP.SelfCapacitanceFudgeFactor = 1.0;
+            wdgGetDP.MutualCapacitanceFudgeFactor = 1.35;
             wdgGetDP.ResistanceFudgeFactor = 1.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>

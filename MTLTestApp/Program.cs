@@ -44,9 +44,9 @@ namespace MTLTestApp
             wdg.dist_wdg_tank_top = 0.040;
         }
 
-        static async Task RunTasksWithProgress(Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>> taskDefinitions, List<DataFrame> measuredResponses, DataFrame measuredImpedances)
+        static async Task RunTasksWithProgress(Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>> taskDefinitions, List<DataFrame> measuredResponses, DataFrame measuredImpedances)
         {
-            var tasks = new List<Task<(List<Complex>, List<Complex[]>)>>();
+            var tasks = new List<Task<(Complex[], List<Complex[]>)>>();
 
             // Use Spectre.Console's Progress
             await AnsiConsole.Progress()
@@ -89,7 +89,7 @@ namespace MTLTestApp
 
             var results = await Task.WhenAll(tasks);
             var calculatedResponses = new Dictionary<string, List<Complex[]>>();
-            var calculatedImpedances = new Dictionary<string, List<Complex>>();
+            var calculatedImpedances = new Dictionary<string, Complex[]>();
 
             int index = 0;
             foreach (var taskDefinition in taskDefinitions)
@@ -112,17 +112,17 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            string directoryPath = @".\PULImpedances\NoCore"; // Specify the directory path
+            string directoryPath = @".\PULImpedances\Core"; // Specify the directory path
 
             var measuredData = ReadMeasuredData(@".\Measured\NoCore");
-            var impedanceData = ReadImpedanceData(@".\Measured\NoCore");
+            var impedanceData = ReadImpedanceData(@".\Measured\Core");
 
             //Show3DPlot_Meas(measuredData);
 
             var wdgAnalytic = new WindingAnalytic();
             var wdgGetDP = new WindingExtModel(directoryPath);
 
-            wdgGetDP.ins_loss_factor = 0.03;
+            wdgGetDP.ins_loss_factor = 0.02;
             wdgAnalytic.ins_loss_factor = 0.02;
             wdgAnalytic.eps_paper = 2.0;
 
@@ -136,12 +136,12 @@ namespace MTLTestApp
             wdgGetDP.Ls = 1.5e-6;
             wdgGetDP.Rl = 10.5;
             wdgGetDP.Ll = 1.5e-6;
-            wdgGetDP.InductanceFudgeFactor = 1.0;
-            wdgGetDP.SelfCapacitanceFudgeFactor = 1.0;
-            wdgGetDP.MutualCapacitanceFudgeFactor = 1.35;
+            wdgGetDP.InductanceFudgeFactor = 1.18; // 1.0;
+            wdgGetDP.SelfCapacitanceFudgeFactor = 1.04;
+            wdgGetDP.MutualCapacitanceFudgeFactor = 1.055; // 1.35;
             wdgGetDP.ResistanceFudgeFactor = 1.0;
 
-            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
+            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {
                     { "MTL Model w/ GetDP LCs", async progress => getDPModel.CalcResponse(progress) },
                     //{ "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
@@ -178,7 +178,7 @@ namespace MTLTestApp
             var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(wdgAnalytic, min_freq, max_freq, num_freqs);
 
-            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
+            var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {
                     { "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
                     { "Lumped Model w/ Analytic LCs", async progress => lumpedModel.CalcResponse(progress) }
@@ -194,13 +194,13 @@ namespace MTLTestApp
             var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
             LinearAxis xAxis = new LinearAxis();
-            xAxis.SetValue("title", "xAxis");
+            xAxis.SetValue("title", "Frequency (Hz)");
             xAxis.SetValue("showgrid", false);
             xAxis.SetValue("showline", true);
             xAxis.SetValue("type", "log");
 
             LinearAxis yAxis = new LinearAxis();
-            yAxis.SetValue("title", "yAxis");
+            yAxis.SetValue("title", "Gain (dB)");
             yAxis.SetValue("showgrid", false);
             yAxis.SetValue("showline", true);
 
@@ -231,32 +231,44 @@ namespace MTLTestApp
                 }
 
                 i++;
-                charts.Add(Plotly.NET.Chart.Combine(combinedCharts).WithTitle($"Turn {t}"));
+                var combinedChart = Plotly.NET.Chart.Combine(combinedCharts).WithTitle($"Turn {t}");
+                
+                charts.Add(combinedChart);
             }
 
             var subplotGrid = Plotly.NET.Chart.Grid<IEnumerable<string>, IEnumerable<GenericChart>>(3, 2).Invoke(charts).WithSize(1600, 1200);
             subplotGrid.Show();
         }
 
-        public static void ShowPlots_Z(DataFrame measuredData, Dictionary<string, List<Complex>> calculatedImpedances)
+        public static void ShowPlots_Z(DataFrame measuredData, Dictionary<string, Complex[]> calculatedImpedances)
         {
             var freqs = MathNet.Numerics.Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
 
             LinearAxis xAxis = new LinearAxis();
-            xAxis.SetValue("title", "xAxis");
+            xAxis.SetValue("title", "Frequency (Hz)");
             xAxis.SetValue("showgrid", false);
             xAxis.SetValue("showline", true);
             xAxis.SetValue("type", "log");
 
-            LinearAxis yAxis = new LinearAxis();
-            yAxis.SetValue("title", "yAxis");
-            yAxis.SetValue("showgrid", false);
-            yAxis.SetValue("showline", true);
+            LinearAxis yAxis_mag = new LinearAxis();
+            yAxis_mag.SetValue("title", "Impedance Magnitude (dB)");
+            yAxis_mag.SetValue("showgrid", false);
+            yAxis_mag.SetValue("showline", true);
 
-            Plotly.NET.Layout layout = new Plotly.NET.Layout();
-            layout.SetValue("xaxis", xAxis);
-            layout.SetValue("yaxis", yAxis);
-            layout.SetValue("showlegend", true);
+            Plotly.NET.Layout layout_mag = new Plotly.NET.Layout();
+            layout_mag.SetValue("xaxis", xAxis);
+            layout_mag.SetValue("yaxis", yAxis_mag);
+            layout_mag.SetValue("showlegend", true);
+
+            LinearAxis yAxis_ph = new LinearAxis();
+            yAxis_ph.SetValue("title", "Impedance Phase (deg)");
+            yAxis_ph.SetValue("showgrid", false);
+            yAxis_ph.SetValue("showline", true);
+
+            Plotly.NET.Layout layout_ph = new Plotly.NET.Layout();
+            layout_ph.SetValue("xaxis", xAxis);
+            layout_ph.SetValue("yaxis", yAxis_ph);
+            layout_ph.SetValue("showlegend", true);
 
             var charts = new List<GenericChart>();
 
@@ -269,8 +281,8 @@ namespace MTLTestApp
             List<double> Mag_Z_measured = measuredData["CH2 Amplitude(dB)"].Cast<double>().Select(z => 20 * Math.Log10(10.2) + z).ToList();
             List<double> Phase_Z_measured = measuredData["CH2 Phase(Deg)"].Cast<double>().ToList();
 
-            var measuredMagChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Mag_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
-            var measuredPhaseChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Phase_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+            var measuredMagChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Mag_Z_measured, Name: "Measured", LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout_mag);
+            var measuredPhaseChart = Chart2D.Chart.Line<double, double, string>(x: measuredData["Frequency(Hz)"].Cast<double>().ToList(), y: Phase_Z_measured, Name: "Measured", ShowLegend: false, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout_ph);
             combinedMagCharts.Add(measuredMagChart);
             combinedPhaseCharts.Add(measuredPhaseChart);
             colorIndex++;
@@ -280,8 +292,8 @@ namespace MTLTestApp
                 List<double> Mag_Z_calculated = impedance.Value.Select(z => 20d * Math.Log10(z.Magnitude)).ToList();
                 List<double> Phase_Z_calculated = impedance.Value.Select(z => z.Phase * 180.0 / Math.PI).ToList();
 
-                var calculatedMagChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_calculated, Name: impedance.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
-                var calculatedPhaseChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_calculated, Name: impedance.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout);
+                var calculatedMagChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Mag_Z_calculated, Name: impedance.Key, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout_mag);
+                var calculatedPhaseChart = Chart2D.Chart.Line<double, double, string>(x: freqs, y: Phase_Z_calculated, Name: impedance.Key, ShowLegend: false, LineColor: Plotly.NET.Color.fromString(colors[colorIndex % colors.Length])).WithLayout(layout_ph);
 
                 combinedMagCharts.Add(calculatedMagChart);
                 combinedPhaseCharts.Add(calculatedPhaseChart);

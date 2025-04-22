@@ -8,8 +8,8 @@ Function {
   nu [ Region[{Air, Core, Turns, Surface_Inf}] ] = 1. / mu0;
   mu [ Region[{Air, Core, Turns, Surface_Inf}] ] = mu0;
   Sc[Region[{Turns}]] = SurfaceArea[] ; // area of coil cross section
-  sigma[Region[{Turns}]] = 5.80e7; //Conductivity of annealed copper
-  sigma[Region[{Core}]] = 0.5e6; //Conductivity of the core (aluminum sheet)
+  sigma[Region[{Turns}]] = 5.80e7; //Conductivity of annealed copper - MS/m
+  sigma[Region[{Core}]] = 9.26e5; //Conductivity of the core (80/20 aluminum sheet) - MS/m
   CoefGeos[Region[{Air, Core, Turns, Surface_Inf}]] = 2*Pi; // planar model, 1 meter thick
 }
 

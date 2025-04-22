@@ -132,13 +132,13 @@ namespace MTLTestApp
             var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(wdgGetDP, min_freq, max_freq, num_freqs);
 
-            wdgGetDP.Rs = 0;
-            wdgGetDP.Ls = 1.5e-6;
-            wdgGetDP.Rl = 10.5;
-            wdgGetDP.Ll = 1.5e-6;
-            wdgGetDP.InductanceFudgeFactor = 1.18;
-            wdgGetDP.CapacitanceFudgeFactor = 1.02;
-            wdgGetDP.ResistanceFudgeFactor = 1.0;
+            wdgGetDP.Rs = 0.0;
+            wdgGetDP.Ls = 0.0;// 1.5e-6;
+            wdgGetDP.Rl = 0.0;// 10.5;
+            wdgGetDP.Ll = 0.0;// 1.5e-6;
+            wdgGetDP.InductanceFudgeFactor = 0.89;
+            wdgGetDP.CapacitanceFudgeFactor = 1.00;
+            wdgGetDP.ResistanceFudgeFactor = 0.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(List<Complex>, List<Complex[]>)>>>
                 {

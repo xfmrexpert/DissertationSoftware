@@ -219,13 +219,97 @@ namespace MTLTestUI
 
         public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance(int posTurn, int negTurn, double freq, int order = 1)
         {
+            Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {posTurn}");
+            string dir, model_prefix;
+            WriteGetDPInductanceFile(posTurn, negTurn, freq, order, out dir, out model_prefix);
 
-            string dir = posTurn.ToString();
+            string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
+            string mygetdp = onelab_dir + "getdp.exe";
+
+            string model = model_prefix + "case";
+            string model_msh = "case.msh";
+            string model_pro = model + ".pro";
+
+            int return_code = -999;
+
+            while (return_code < 0)
+            {
+                var sb = new StringBuilder();
+                Process p = new Process();
+
+                p.StartInfo.FileName = mygetdp;
+                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
+                p.StartInfo.CreateNoWindow = true;
+
+                // redirect the output
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.RedirectStandardError = true;
+
+                // hookup the eventhandlers to capture the data that is received
+                p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
+                p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
+
+                // direct start
+                p.StartInfo.UseShellExecute = false;
+
+                // Start process watchdog timer
+                var timer = new System.Timers.Timer(60000); // 60 seconds
+                timer.Elapsed += (sender, e) =>
+                {
+                    if (!p.HasExited)
+                    {
+                        p.Kill();
+                        Console.WriteLine("Process killed due to timeout.");
+                        timer.Stop();
+                        return_code = -1; // Set return code to indicate timeout
+                        // Try again
+                    }
+                };
+
+                p.Start();
+
+                timer.Start();
+
+                // start our event pumps
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                // until we are done
+                p.WaitForExit();
+
+                string output = sb.ToString();
+                return_code = p.ExitCode;
+                timer.Stop(); // Stop the timer if process exits normally
+                p.Close();
+
+            }
+
+            
+            if (return_code != 0)
+            {
+                throw new Exception($"Failed to run getdp in CalcInductance for turn {posTurn}");
+            }
+
+            (double r, double z) = wdg.GetTurnMidpoint(posTurn);
+
+            var resultFile = File.OpenText(model_prefix + "out.txt");
+            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
+            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
+
+            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
+            resultFile.Close();
+
+            return L;
+        }
+
+        private void WriteGetDPInductanceFile(int posTurn, int negTurn, double freq, int order, out string dir, out string model_prefix)
+        {
+            dir = posTurn.ToString();
             if (negTurn >= 0)
             {
                 dir += "_" + negTurn.ToString();
             }
-            string model_prefix = $"./Results/{dir}/";
+            model_prefix = $"./Results/{dir}/";
             Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
 
             var f = File.CreateText($"Results/{dir}/case.pro");
@@ -315,71 +399,29 @@ namespace MTLTestUI
             f.WriteLine($"Freq={freq};");
             f.WriteLine("Include \"../../GetDP_Files/L_s_inf.pro\";");
             f.Close();
-
-            string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
-            string mygetdp = onelab_dir + "getdp.exe";
-            
-            string model = model_prefix + "case";
-            string model_msh = "case.msh";
-            string model_pro = model + ".pro";
-
-            var sb = new StringBuilder();
-            Process p = new Process();
-
-            p.StartInfo.FileName = mygetdp;
-            p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
-            p.StartInfo.CreateNoWindow = true;
-
-            // redirect the output
-            p.StartInfo.RedirectStandardOutput = true;
-            p.StartInfo.RedirectStandardError = true;
-
-            // hookup the eventhandlers to capture the data that is received
-            p.OutputDataReceived += (sender, args) => sb.AppendLine(args.Data);
-            p.ErrorDataReceived += (sender, args) => sb.AppendLine(args.Data);
-
-            // direct start
-            p.StartInfo.UseShellExecute = false;
-
-            p.Start();
-
-            // start our event pumps
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-
-            // until we are done
-            p.WaitForExit();
-
-            string output = sb.ToString();
-
-            int return_code = p.ExitCode;
-            if (return_code != 0)
-            {
-                throw new Exception($"Failed to run getdp in CalcInductance for turn {posTurn}");
-            }
-
-            (double r, double z) = wdg.GetTurnMidpoint(posTurn);
-
-            var resultFile = File.OpenText(model_prefix + "out.txt");
-            string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
-            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
-
-            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
-            resultFile.Close();
-
-            return L;
         }
 
         public void CalcInductanceMatrix(double freq, int order = 1)
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
-            //Parallel.For(0, n_turns, t =>
-            for (int t = 0; t < wdg.num_turns; t++)
+            var options = new ParallelOptions
             {
-                L_getdp.SetRow(t, CalcInductance(t, -1, freq, order));
+                MaxDegreeOfParallelism = 8  // Limit to 4 concurrent threads
+            };
+
+            Parallel.For(0, wdg.num_turns, options, t =>
+            //for (int t = 0; t < wdg.num_turns; t++)
+            {
+                var row = CalcInductance(t, -1, freq, order);
+                // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
+                lock (L_getdp)
+                {
+                    L_getdp.SetRow(t, row);
+                }
                 (double r, double z) = wdg.GetTurnMidpoint(t);
             }
+            );
 
             Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum()/1000.0}mH\n");
 

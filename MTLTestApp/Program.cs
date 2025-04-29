@@ -136,9 +136,9 @@ namespace MTLTestApp
             wdgGetDP.Ls = 1.5e-6;
             wdgGetDP.Rl = 10.5;
             wdgGetDP.Ll = 1.5e-6;
-            wdgGetDP.InductanceFudgeFactor = 1.18; // 1.0;
-            wdgGetDP.SelfCapacitanceFudgeFactor = 1.04;
-            wdgGetDP.MutualCapacitanceFudgeFactor = 1.055; // 1.35;
+            wdgGetDP.InductanceFudgeFactor = 0.88;
+            wdgGetDP.SelfCapacitanceFudgeFactor = 1.0;
+            wdgGetDP.MutualCapacitanceFudgeFactor = 1.35;
             wdgGetDP.ResistanceFudgeFactor = 1.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>

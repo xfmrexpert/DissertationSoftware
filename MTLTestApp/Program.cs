@@ -119,27 +119,30 @@ namespace MTLTestApp
 
             //Show3DPlot_Meas(measuredData);
 
-            var wdgAnalytic = new WindingAnalytic();
-            var wdgGetDP = new WindingExtModel(directoryPath);
+            var tfmr = new Transformer();
+            var wdg = new Winding();
+            tfmr.Windings.Add(wdg);
 
-            wdgGetDP.ins_loss_factor = 0.02;
-            wdgAnalytic.ins_loss_factor = 0.02;
-            wdgAnalytic.eps_paper = 2.0;
+            var analyticMatrixCalc = new AnalyticMatrixCalculator();
+            var getDPMatrixCalc = new ExtMatrixCalculator(directoryPath);
 
-            num_turns = wdgAnalytic.num_turns;
+            tfmr.ins_loss_factor = 0.02;
+            wdg.eps_paper = 2.0;
 
-            var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
-            var getDPModel = new MTLModel(wdgGetDP, min_freq, max_freq, num_freqs);
-            var lumpedModel = new LumpedModel(wdgGetDP, min_freq, max_freq, num_freqs);
+            num_turns = wdg.num_turns;
 
-            wdgGetDP.Rs = 0;
-            wdgGetDP.Ls = 1.5e-6;
-            wdgGetDP.Rl = 10.5;
-            wdgGetDP.Ll = 1.5e-6;
-            wdgGetDP.InductanceFudgeFactor = 0.88;
-            wdgGetDP.SelfCapacitanceFudgeFactor = 1.0;
-            wdgGetDP.MutualCapacitanceFudgeFactor = 1.35;
-            wdgGetDP.ResistanceFudgeFactor = 1.0;
+            var analyticModel = new MTLModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
+            var getDPModel = new MTLModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
+            var lumpedModel = new LumpedModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
+
+            wdg.Rs = 0;
+            wdg.Ls = 1.5e-6;
+            wdg.Rl = 10.5;
+            wdg.Ll = 1.5e-6;
+            getDPMatrixCalc.InductanceFudgeFactor = 0.88;
+            getDPMatrixCalc.SelfCapacitanceFudgeFactor = 1.0;
+            getDPMatrixCalc.MutualCapacitanceFudgeFactor = 1.35;
+            wdg.ResistanceFudgeFactor = 1.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {
@@ -168,15 +171,19 @@ namespace MTLTestApp
             var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
             var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
 
-            var wdgAnalytic = new WindingAnalytic();
+            var tfmr = new Transformer();
+            var wdg = new Winding();
+            tfmr.Windings.Add(wdg);
 
-            wdgAnalytic.num_discs = 1;
-            wdgAnalytic.turns_per_disc = 2;
+            var analyticMatrixCalc = new AnalyticMatrixCalculator();
 
-            num_turns = wdgAnalytic.num_turns;
+            wdg.num_discs = 1;
+            wdg.turns_per_disc = 2;
 
-            var analyticModel = new MTLModel(wdgAnalytic, min_freq, max_freq, num_freqs);
-            var lumpedModel = new LumpedModel(wdgAnalytic, min_freq, max_freq, num_freqs);
+            num_turns = wdg.num_turns;
+
+            var analyticModel = new MTLModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
+            var lumpedModel = new LumpedModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {

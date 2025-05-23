@@ -1,7 +1,6 @@
 
 Flag_Axi = 1;
 Flag_FrequencyDomain = 1;
-//Freq = 60;
 
 Function {
   mu0 = 4.e-7 * Pi;
@@ -25,7 +24,6 @@ Constraint{
         // Amplitude of the phasor is set to "Current"
         { Region TurnPos; Value 1.0; }
         { Region TurnZero; Value 0.0; }
-        { Region TurnNeg; Value -1.0; }
     }
   }
   //{ Name Voltage_2D;

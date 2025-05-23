@@ -217,11 +217,11 @@ namespace MTLTestUI
             DelimitedWriter.Write("C_getdp.csv", C_getdp, ",");
         }
 
-        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance(int posTurn, int negTurn, double freq, int order = 1)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance(int posTurn, double freq, int order = 1)
         {
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {posTurn}");
             string dir, model_prefix;
-            WriteGetDPInductanceFile(posTurn, negTurn, freq, order, out dir, out model_prefix);
+            WriteGetDPInductanceFile(posTurn, freq, order, out dir, out model_prefix);
 
             string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
             string mygetdp = onelab_dir + "getdp.exe";
@@ -231,6 +231,7 @@ namespace MTLTestUI
             string model_pro = model + ".pro";
 
             int return_code = -999;
+            object returnCodeLock = new object();
 
             while (return_code < 0)
             {
@@ -261,7 +262,10 @@ namespace MTLTestUI
                         p.Kill();
                         Console.WriteLine("Process killed due to timeout.");
                         timer.Stop();
-                        return_code = -1; // Set return code to indicate timeout
+                        lock (returnCodeLock)
+                        {
+                            return_code = -1; // Set return code to indicate timeout
+                        }
                         // Try again
                     }
                 };
@@ -279,7 +283,12 @@ namespace MTLTestUI
 
                 string output = sb.ToString();
                 return_code = p.ExitCode;
+                if (return_code > 0)
+                {
+                    Console.Write(output);
+                }
                 timer.Stop(); // Stop the timer if process exits normally
+                timer.Dispose();
                 p.Close();
 
             }
@@ -302,13 +311,10 @@ namespace MTLTestUI
             return L;
         }
 
-        private void WriteGetDPInductanceFile(int posTurn, int negTurn, double freq, int order, out string dir, out string model_prefix)
+        private void WriteGetDPInductanceFile(int posTurn, double freq, int order, out string dir, out string model_prefix)
         {
             dir = posTurn.ToString();
-            if (negTurn >= 0)
-            {
-                dir += "_" + negTurn.ToString();
-            }
+            
             model_prefix = $"./Results/{dir}/";
             Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
 
@@ -320,48 +326,33 @@ namespace MTLTestUI
 
             bool firstTurn;
 
-            if (false)
+            f.Write($"Air = Region[{{{tfmr.phyAir}, ");
+            firstTurn = true;
+            for (int i = 0; i < wdg.num_turns; i++)
             {
-                f.WriteLine($"Air = Region[{{{tfmr.phyAir}}}];");
-            }
-            else
-            {
-                f.Write($"Air = Region[{{{tfmr.phyAir}, ");
-                firstTurn = true;
-                for (int i = 0; i < wdg.num_turns; i++)
+                if (!firstTurn)
                 {
-                    if (!firstTurn)
-                    {
-                        f.Write(", ");
-                    }
-                    else
-                    {
-                        firstTurn = false;
-                    }
-                    f.Write($"{wdg.phyTurnsIns[i]}");
+                    f.Write(", ");
                 }
-                f.WriteLine("}];");
+                else
+                {
+                    firstTurn = false;
+                }
+                f.Write($"{wdg.phyTurnsIns[i]}");
             }
-
+            f.WriteLine("}];");
+            
             for (int i = 0; i < wdg.num_turns; i++)
             {
                 f.WriteLine($"Turn{i} = Region[{wdg.phyTurnsCond[i]}];");
             }
 
             f.WriteLine($"TurnPos = Region[{wdg.phyTurnsCond[posTurn]}];");
-            if (negTurn >= 0)
-            {
-                f.WriteLine($"TurnNeg = Region[{wdg.phyTurnsCond[negTurn]}];");
-            }
-            else
-            {
-                f.WriteLine("TurnNeg = Region[{}];");
-            }
             f.Write("TurnZero = Region[{");
             firstTurn = true;
             for (int i = 0; i < wdg.num_turns; i++)
             {
-                if ((i != posTurn) && (i != negTurn))
+                if (i != posTurn)
                 {
                     if (!firstTurn)
                     {
@@ -375,11 +366,10 @@ namespace MTLTestUI
                 }
             }
             f.WriteLine("}];");
-            //f.WriteLine($"Ground = Region[{phyGnd}];");
-            //Surface_bn0 doesn't appear to do anything (also, surface?)
+            
             f.WriteLine($"Axis = Region[{tfmr.phyAxis}];");
             f.WriteLine($"Surface_Inf = Region[{tfmr.phyInf}];");
-            //f.WriteLine("Vol_C_Mag += Region[{TurnPos, TurnNeg, TurnZero}];");
+            
             f.Write("Turns = Region[{");
             for (int i = 0; i < wdg.num_turns; i++)
             {
@@ -413,7 +403,7 @@ namespace MTLTestUI
             Parallel.For(0, wdg.num_turns, options, t =>
             //for (int t = 0; t < wdg.num_turns; t++)
             {
-                var row = CalcInductance(t, -1, freq, order);
+                var row = CalcInductance(t, freq, order);
                 // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
                 lock (L_getdp)
                 {

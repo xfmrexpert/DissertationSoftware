@@ -27,7 +27,7 @@ public partial class MainViewModel : ViewModelBase
         //_mainModel.wdg.turns_per_disc = 2;
 
         _mainModel.wdg.eps_paper = 1.5; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
-        _mainModel.tfmr.r_core = 0;// Conversions.in_to_m(12.1);
+        _mainModel.tfmr.r_core = Conversions.in_to_m(12.1);
         _mainModel.tfmr.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
 
@@ -47,7 +47,7 @@ public partial class MainViewModel : ViewModelBase
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
         //_mainModel.CalcInductanceMatrix(60, 2);
         //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        foreach (var freq in (List<double>)[60, 120, 1e3, 10e3, 100e3, 1e6])
+        foreach (var freq in (List<double>)[100, 120, 1e3, 10e3, 100e3])
         {
             if (freq > 0)
             {

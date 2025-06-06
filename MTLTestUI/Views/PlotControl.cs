@@ -16,7 +16,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using TDAP;
+using GeometryLib;
+using Geometry = GeometryLib.Geometry;
 
 namespace MTLTestUI.Views
 {
@@ -87,13 +88,13 @@ namespace MTLTestUI.Views
             }
         }
 
-        public static readonly StyledProperty<TDAP.Geometry> GeometryProperty =
-            AvaloniaProperty.Register<PlotControl, TDAP.Geometry>(nameof(Geometry));
+        public static readonly StyledProperty<Geometry> GeometryProperty =
+            AvaloniaProperty.Register<PlotControl, Geometry>(nameof(Geometry));
 
         public static readonly StyledProperty<Mesh> MeshProperty =
             AvaloniaProperty.Register<PlotControl, Mesh>(nameof(Mesh));
 
-        public TDAP.Geometry Geometry
+        public Geometry Geometry
         {
             get => GetValue(GeometryProperty);
             set
@@ -117,13 +118,16 @@ namespace MTLTestUI.Views
         private void GetMeshPoints()
         {
             _meshpoints = new List<SKPoint>();
-            var edges = Mesh.GetUniqueEdges();
-            foreach (var edge in edges) 
-            {
-                var _pt = new Point(edge.Item1.Node.X, edge.Item1.Node.Y);
-                _meshpoints.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
-                var _pt2 = new Point(edge.Item2.Node.X, edge.Item2.Node.Y);
-                _meshpoints.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
+            if (Mesh is not null)
+            { 
+                var edges = Mesh.GetUniqueEdges();
+                foreach (var edge in edges)
+                {
+                    var _pt = new Point(edge.Item1.Node.X, edge.Item1.Node.Y);
+                    _meshpoints.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
+                    var _pt2 = new Point(edge.Item2.Node.X, edge.Item2.Node.Y);
+                    _meshpoints.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
+                }
             }
         }
 

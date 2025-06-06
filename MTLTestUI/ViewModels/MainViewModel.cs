@@ -6,8 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
-using TDAP;
+using Geometry = GeometryLib.Geometry;
 using TfmrLib;
+using GeometryLib;
 
 namespace MTLTestUI.ViewModels;
 
@@ -15,7 +16,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private MainModel _mainModel;
 
-    public TDAP.Geometry Geometry { get; set; }
+    public Geometry Geometry { get; set; }
 
     public MeshLib.Mesh Mesh { get; set; }
 
@@ -31,13 +32,13 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.tfmr.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
 
-        Geometry = _mainModel.tfmr.GenerateGeometry(false);
+        Geometry = _mainModel.tfmr.GenerateGeometry();
         GmshFile gmshFile = new GmshFile("case.geo");
         gmshFile.CreateFromGeometry(Geometry);
         double meshscale = 1.0;
         Mesh = gmshFile.GenerateMesh(meshscale, 2);
         _mainModel.mesh = Mesh;
-        Mesh.WriteToTriangleFiles("", "case");
+        //Mesh.WriteToTriangleFiles("", "case");
         
         //_mainModel.CalcCapacitanceMatrix();
 
@@ -45,13 +46,13 @@ public partial class MainViewModel : ViewModelBase
         double min_freq = 10e3;
         double max_freq = 1e6;
         var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
-        //_mainModel.CalcInductanceMatrix(60, 2);
+        _mainModel.CalcInductanceMatrix(60, 2);
         //_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-        foreach (var freq in (List<double>)[1e3, 10e3, 100e3, 1e6])
+        foreach (var freq in (List<double>)[/*100, 120, */1e3, 10e3/*, 100e3*/])
         {
             if (freq > 0)
             {
-                _mainModel.CalcInductanceMatrix(freq, 2);
+                //_mainModel.CalcInductanceMatrix(freq, 2);
                 //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
             }
             //

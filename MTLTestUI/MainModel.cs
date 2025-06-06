@@ -8,12 +8,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using TDAP;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Data;
 using Femm;
 using Avalonia.Media;
+using GeometryLib;
 using TfmrLib;
 using MeshLib;
 using CliWrap;
@@ -23,6 +23,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Globalization;
 using System.Numerics;
 using System.Text.RegularExpressions;
+using Geometry = GeometryLib.Geometry;
 
 namespace MTLTestUI
 {
@@ -392,7 +393,7 @@ namespace MTLTestUI
             DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public void CalcInductanceMatrix_FEMM(TDAP.Geometry geom, double freq, int order = 2)
+        public void CalcInductanceMatrix_FEMM(Geometry geom, double freq, int order = 2)
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
@@ -439,7 +440,7 @@ namespace MTLTestUI
             DelimitedWriter.Write($"L_femm_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance_FEMM(TDAP.Geometry geo, double freq, int turn)
+        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance_FEMM(Geometry geo, double freq, int turn)
         {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();

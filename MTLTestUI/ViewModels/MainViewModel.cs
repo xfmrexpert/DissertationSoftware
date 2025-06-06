@@ -6,8 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
-using TDAP;
+using GeometryLib;
 using TfmrLib;
+using Geometry = GeometryLib.Geometry;
 
 namespace MTLTestUI.ViewModels;
 
@@ -15,7 +16,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private MainModel _mainModel;
 
-    public TDAP.Geometry Geometry { get; set; }
+    public Geometry Geometry { get; set; }
 
     public MeshLib.Mesh Mesh { get; set; }
 
@@ -31,7 +32,7 @@ public partial class MainViewModel : ViewModelBase
         _mainModel.tfmr.bdry_radius = 3.0;
         Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
 
-        Geometry = _mainModel.tfmr.GenerateGeometry(false);
+        Geometry = _mainModel.tfmr.GenerateGeometry();
         GmshFile gmshFile = new GmshFile("case.geo");
         gmshFile.CreateFromGeometry(Geometry);
         double meshscale = 1.0;

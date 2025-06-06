@@ -16,7 +16,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using TDAP;
+using GeometryLib;
+using Geometry = GeometryLib.Geometry;
 
 namespace MTLTestUI.Views
 {
@@ -87,13 +88,13 @@ namespace MTLTestUI.Views
             }
         }
 
-        public static readonly StyledProperty<TDAP.Geometry> GeometryProperty =
-            AvaloniaProperty.Register<PlotControl, TDAP.Geometry>(nameof(Geometry));
+        public static readonly StyledProperty<Geometry> GeometryProperty =
+            AvaloniaProperty.Register<PlotControl, Geometry>(nameof(Geometry));
 
         public static readonly StyledProperty<Mesh> MeshProperty =
             AvaloniaProperty.Register<PlotControl, Mesh>(nameof(Mesh));
 
-        public TDAP.Geometry Geometry
+        public Geometry Geometry
         {
             get => GetValue(GeometryProperty);
             set

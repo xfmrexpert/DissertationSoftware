@@ -118,13 +118,16 @@ namespace MTLTestUI.Views
         private void GetMeshPoints()
         {
             _meshpoints = new List<SKPoint>();
-            var edges = Mesh.GetUniqueEdges();
-            foreach (var edge in edges) 
+            if (Mesh is not null)
             {
-                var _pt = new Point(edge.Item1.Node.X, edge.Item1.Node.Y);
-                _meshpoints.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
-                var _pt2 = new Point(edge.Item2.Node.X, edge.Item2.Node.Y);
-                _meshpoints.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
+                var edges = Mesh.GetUniqueEdges();
+                foreach (var edge in edges)
+                {
+                    var _pt = new Point(edge.Item1.Node.X, edge.Item1.Node.Y);
+                    _meshpoints.Add(new SKPoint((float)_pt.X, (float)_pt.Y));
+                    var _pt2 = new Point(edge.Item2.Node.X, edge.Item2.Node.Y);
+                    _meshpoints.Add(new SKPoint((float)_pt2.X, (float)_pt2.Y));
+                }
             }
         }
 
@@ -153,7 +156,7 @@ namespace MTLTestUI.Views
 
         public void SetInitialScale()
         {
-            WorldBounds = Geometry.GetBounds();
+            WorldBounds = Geometry?.GetBounds();
         }
 
         public SKMatrix GetTransform()

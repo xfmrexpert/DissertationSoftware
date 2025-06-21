@@ -20,6 +20,7 @@ namespace MTLTestUI
 {
     public class MainModel
     {
+        private const string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
         public Transformer tfmr;
         public Winding wdg;
         public Mesh mesh;
@@ -144,7 +145,7 @@ namespace MTLTestUI
 
             f.Close();
 
-            string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
+            string onelab_dir = MainModel.onelab_dir;
             string mygetdp = onelab_dir + "getdp.exe";
 
             string model = model_prefix + "case";
@@ -212,10 +213,10 @@ namespace MTLTestUI
         public Vector_d CalcInductance(int posTurn, double freq, int order = 1)
         {
             Console.WriteLine($"Frequency: {freq.ToString("0.##E0")} Turn: {posTurn}");
-            string dir, model_prefix;
-            WriteGetDPInductanceFile(posTurn, freq, order, out dir, out model_prefix);
+            
+            string model_prefix = $"./Results/{posTurn}/";
+            WriteGetDPInductanceFile(posTurn, freq, order, model_prefix);
 
-            string onelab_dir = "C:\\Users\\tcraymond\\Downloads\\onelab-Windows64\\";
             string mygetdp = onelab_dir + "getdp.exe";
 
             string model = model_prefix + "case";
@@ -231,7 +232,7 @@ namespace MTLTestUI
                 Process p = new Process();
 
                 p.StartInfo.FileName = mygetdp;
-                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath Results/{dir}/ -solve Magnetodynamics2D_av -pos dyn -v 5";
+                p.StartInfo.Arguments = model_pro + " -msh " + model_msh + $" -setstring modelPath {model_prefix} -solve Magnetodynamics2D_av -pos dyn -v 5";
                 p.StartInfo.CreateNoWindow = true;
 
                 // redirect the output
@@ -295,22 +296,19 @@ namespace MTLTestUI
 
             var resultFile = File.OpenText(model_prefix + "out.txt");
             string? line = resultFile.ReadLine() ?? throw new Exception("Failed to read line from result file.");
-            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), Double.Parse);
+            var L_array = Array.ConvertAll(line.Split().Skip(1).Where((value, index) => index % 2 == 1).ToArray(), double.Parse);
 
-            var L = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(L_array);
+            var L = Vector_d.Build.Dense(L_array);
             resultFile.Close();
 
             return L;
         }
 
-        private void WriteGetDPInductanceFile(int posTurn, double freq, int order, out string dir, out string model_prefix)
+        private void WriteGetDPInductanceFile(int posTurn, double freq, int order, string model_prefix)
         {
-            dir = posTurn.ToString();
-            
-            model_prefix = $"./Results/{dir}/";
-            Directory.CreateDirectory(Directory.GetCurrentDirectory() + $"/Results/{dir}");
+            Directory.CreateDirectory(Directory.GetCurrentDirectory() + model_prefix);
 
-            var f = File.CreateText($"Results/{dir}/case.pro");
+            var f = File.CreateText(model_prefix + "case.pro");
 
             f.WriteLine($"FE_Order = {order};");
 
@@ -383,41 +381,7 @@ namespace MTLTestUI
             f.Close();
         }
 
-        public void CalcInductanceMatrix(double freq, int order = 1)
-        {
-            Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
-
-            var options = new ParallelOptions
-            {
-                MaxDegreeOfParallelism = 8  // Limit to 4 concurrent threads
-            };
-
-            Parallel.For(0, wdg.num_turns, options, t =>
-            //for (int t = 0; t < wdg.num_turns; t++)
-            {
-                var row = CalcInductance(t, freq, order);
-                // Take a lock to prevent two threads from writing to the matrix at the same time (just in case)
-                lock (L_getdp)
-                {
-                    L_getdp.SetRow(t, row);
-                }
-                (double r, double z) = wdg.GetTurnMidpoint(t);
-            }
-            );
-
-            Console.Write($"L total at {freq.ToString("0.##E0")}Hz: {(L_getdp * 2 * Math.PI).RowSums().Sum()/1000.0}mH\n");
-
-            for (int t1 = 0; t1 < wdg.num_turns; t1++)
-            {
-                (double r, double z) = wdg.GetTurnMidpoint(t1);
-                for (int t2 = 0; t2 < wdg.num_turns; t2++)
-                {
-                    L_getdp[t1, t2] = L_getdp[t1, t2] / r;
-                }
-            }
-
-            DelimitedWriter.Write($"L_getdp_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
-        }
+        
 
         public void CalcInductanceMatrix_FEMM(Geometry geom, double freq, int order = 2)
         {
@@ -466,7 +430,7 @@ namespace MTLTestUI
             DelimitedWriter.Write($"L_femm_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public MathNet.Numerics.LinearAlgebra.Vector<double> CalcInductance_FEMM(Geometry geo, double freq, int turn)
+        public Vector_d CalcInductance_FEMM(Geometry geo, double freq, int turn)
         {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();
@@ -513,7 +477,7 @@ namespace MTLTestUI
             Cli.Wrap("./bin/fkn.exe").WithArguments("case").ExecuteAsync().GetAwaiter().GetResult();
 
             string filePath = "inductances.txt";
-            MathNet.Numerics.LinearAlgebra.Vector<double> inductances = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(wdg.num_turns);
+            Vector_d inductances = Vector_d.Build.Dense(wdg.num_turns);
             Regex complexRegex = new Regex(@"([\d.eE+-]+)\s*\+\s*j([\d.eE+-]+)", RegexOptions.Compiled);
 
             try

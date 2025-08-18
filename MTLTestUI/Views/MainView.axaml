@@ -14,6 +14,6 @@
   </Design.DataContext>
 
 	<Border BorderBrush="Red" BorderThickness="0" MinWidth="200" MinHeight="300" Margin="10">
-		<views:PlotControl x:Name="plotCtl" Geometry="{Binding Geometry}" Mesh="{Binding Mesh}"/>
+		<views:PlotControl x:Name="plotCtl" Geometry="{Binding Geometry}" Mesh="{Binding Mesh}" TagManager="{Binding TagManager}"/>
 	</Border>
 </UserControl>

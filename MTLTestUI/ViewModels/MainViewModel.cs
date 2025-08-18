@@ -20,10 +20,13 @@ public partial class MainViewModel : ViewModelBase
 
     public MeshLib.Mesh Mesh { get; set; }
 
+    public TagManager TagManager { get; set; }
+
     public MainViewModel()
     {
         _mainModel = new MainModel();
         Geometry = _mainModel.tfmr.GenerateGeometry();
+        TagManager = _mainModel.tfmr.TagManager;
 
     }
 

@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using GeometryLib;
 using Geometry = GeometryLib.Geometry;
+using TfmrLib;
 
 namespace MTLTestUI.Views
 {
@@ -61,6 +62,20 @@ namespace MTLTestUI.Views
             get => GetValue(ShowWorldCoordinatesProperty);
             set => SetValue(ShowWorldCoordinatesProperty, value);
         }
+
+        private int? _hoverSurfaceTag;
+        public TagManager? TagManager
+        {
+            get => GetValue(TagManagerProperty);
+            set
+            {
+                SetValue(TagManagerProperty, value);
+                InvalidateVisual();
+            }
+        }
+
+        private LocationKey? _hoverLocation;
+        private TagType _hoverTagType = TagType.None;
 
         protected void OnWheel(object? sender, PointerWheelEventArgs e)
         {
@@ -126,6 +141,9 @@ namespace MTLTestUI.Views
 
         public static readonly StyledProperty<Mesh?> MeshProperty =
             AvaloniaProperty.Register<PlotControl, Mesh?>(nameof(Mesh));
+
+        public static readonly StyledProperty<TagManager?> TagManagerProperty =
+            AvaloniaProperty.Register<PlotControl, TagManager?>(nameof(TagManager));
 
         public Geometry? Geometry
         {
@@ -258,6 +276,35 @@ namespace MTLTestUI.Views
             var w = TransformScreenToWorld(screenPt, inv);
             _worldCursor = (w.X, w.Y);
             _haveWorldCursor = true;
+
+            if (Geometry is not null)
+            {
+                var surface = Geometry.HitTestSurface(w.X, w.Y);
+                _hoverSurfaceTag = surface?.Tag;
+            }
+            else
+            {
+                _hoverSurfaceTag = null;
+            }
+
+            if (_hoverSurfaceTag is int tagVal && TagManager is not null)
+            {
+                if (TagManager.TryGetLocationByTag(tagVal, out var loc, out var tagType))
+                {
+                    _hoverLocation = loc;
+                    _hoverTagType = tagType;
+                }
+                else
+                {
+                    _hoverLocation = null;
+                    _hoverTagType = TagType.None;
+                }
+            }
+            else
+            {
+                _hoverLocation = null;
+                _hoverTagType = TagType.None;
+            }
         }
 
         private static (double X, double Y) TransformScreenToWorld(Point screen, SKMatrix inv)
@@ -289,7 +336,10 @@ namespace MTLTestUI.Views
                 matrix,
                 WorldBounds!,
                 ShowWorldCoordinates && _haveWorldCursor,
-                _worldCursor));
+                _worldCursor,
+                _hoverSurfaceTag,
+                _hoverLocation,
+                _hoverTagType));
 
             // Request next frame only while interacting (avoid continuous redraw)
             if (isInDrag)
@@ -306,7 +356,10 @@ namespace MTLTestUI.Views
                             SKMatrix transform,
                             BoundingBox world,
                             bool showCursor,
-                            (double X, double Y) cursorWorld)
+                            (double X, double Y) cursorWorld,
+                            int? hoverTag,
+                            LocationKey? hoverLocation,
+                            TagType hoverTagType)
         {
             Bounds = bounds;
             if (mesh is not null)
@@ -318,7 +371,14 @@ namespace MTLTestUI.Views
             World = world;
             _showCursor = showCursor;
             _cursorWorld = cursorWorld;
+            _hoverTag = hoverTag;
+            _hoverLocation = hoverLocation;
+            _hoverTagType = hoverTagType;
         }
+
+        private readonly int? _hoverTag;
+        private readonly LocationKey? _hoverLocation;
+        private readonly TagType _hoverTagType;
 
         public void Dispose() { }
 
@@ -376,9 +436,23 @@ namespace MTLTestUI.Views
                     TextSize = 14,
                     Typeface = SKTypeface.FromFamilyName("Consolas")
                 };
-                string txt = $"X: {_cursorWorld.X:0.###}  Y: {_cursorWorld.Y:0.###}";
+                string line1 = $"X: {_cursorWorld.X:0.###}  Y: {_cursorWorld.Y:0.###}";
+                string line2 = "";
+                if (_hoverTag is int t)
+                {
+                    if (_hoverLocation is LocationKey loc)
+                    {
+                        line2 = $"Tag: {t}  Loc: W{loc.WindingId} S{loc.SegmentId} T{loc.TurnNumber} Str{loc.StrandNumber}  Type: {_hoverTagType}";
+                    }
+                    else
+                    {
+                        line2 = $"Tag: {t}";
+                    }
+                }
                 const float margin = 6f;
-                canvas.DrawText(txt, margin, (float)Bounds.Height - margin - 4f, textPaint);
+                canvas.DrawText(line1, margin, (float)Bounds.Height - margin - 20f, textPaint);
+                if (!string.IsNullOrEmpty(line2))
+                    canvas.DrawText(line2, margin, (float)Bounds.Height - margin - 4f, textPaint);
             }
         }
     }

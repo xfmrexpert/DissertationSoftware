@@ -24,7 +24,7 @@ namespace MTLTestUI
 
         public MainModel()
         {
-            tfmr = TestModels.TB904_ThreePhase();
+            tfmr = TestModels.TB904_SinglePhase();
         }
         
         

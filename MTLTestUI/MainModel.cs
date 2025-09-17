@@ -21,10 +21,15 @@ namespace MTLTestUI
     public class MainModel
     {
         public Transformer tfmr;
+        public Mesh mesh;
 
         public MainModel()
         {
             tfmr = TestModels.TB904_SinglePhase();
+            var geom = tfmr.GenerateGeometry();
+            var meshgen = new MeshGenerator();
+            meshgen.AddGeometry(geom);
+            mesh = meshgen.GenerateMesh(1.0, 1);
         }
         
         

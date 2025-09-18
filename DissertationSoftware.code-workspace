@@ -10,5 +10,7 @@
 			"path": "../GeomLibrary"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"dotnet.defaultSolution": "TfmrLibrary/TfmrLib.sln"
+	}
 }

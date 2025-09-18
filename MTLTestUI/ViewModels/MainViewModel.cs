@@ -25,7 +25,7 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         _mainModel = new MainModel();
-        Geometry = _mainModel.tfmr.GenerateGeometry();
+        Geometry = _mainModel.geometry;
         TagManager = _mainModel.tfmr.TagManager;
 
     }

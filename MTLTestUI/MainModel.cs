@@ -23,6 +23,8 @@ namespace MTLTestUI
         public Transformer tfmr;
         public Mesh mesh;
 
+        public Geometry geometry;
+
         // Simple timing helpers
         private static T Measure<T>(string label, Func<T> func)
         {
@@ -47,10 +49,10 @@ namespace MTLTestUI
             var total = Stopwatch.StartNew();
 
             tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
-            var geom = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
+            geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
             var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
-            Measure("AddGeometry", () => meshgen.AddGeometry(geom));
-            mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh(10.0, 1));
+            Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
+            //mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh(10.0, 1));
 
             total.Stop();
             Console.WriteLine($"MainModel constructor total: {total.Elapsed.TotalMilliseconds:F3} ms");

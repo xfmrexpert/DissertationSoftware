@@ -48,11 +48,12 @@ namespace MTLTestUI
             Console.WriteLine("MainModel construction timing start");
             var total = Stopwatch.StartNew();
 
-            tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
+            //tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
+            tfmr = Measure("TestTransformer", TestModels.TestTransformer);
             geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
             var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
             Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
-            //mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh(10.0, 1));
+            //mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh(100.0, 1));
 
             total.Stop();
             Console.WriteLine($"MainModel constructor total: {total.Elapsed.TotalMilliseconds:F3} ms");

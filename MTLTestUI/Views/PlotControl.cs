@@ -49,6 +49,8 @@ namespace MTLTestUI.Views
         private SKPath? _geometryPath;
         private List<SKPoint>? _meshpoints;
 
+        private List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)>? _turnNumbers;
+
         // Store last mouse world coordinates
         private bool _haveWorldCursor;
         private (double X, double Y) _worldCursor;
@@ -212,6 +214,32 @@ namespace MTLTestUI.Views
                 path.ArcTo(rect, (float)startAngle, (float)sweepAngle, false);
             }
 
+            _turnNumbers = new List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)>();
+            foreach (var surface in Geometry.Surfaces)
+            {
+                if (TagManager?.TryGetLocationByTag(surface.Boundary.Tag, out var loc, out var tag_type) == true &&
+                    tag_type == TagType.ConductorBoundary)
+                {
+                    var center = surface.GetCentroid();
+                    var pt = new SKPoint((float)center.x, (float)center.y);
+
+                    // Get world‑space bounding box of the conductor surface
+                    var (minX, maxX, minY, maxY) = surface.Boundary.GetBoundingBox();
+                    float ww = (float)(maxX - minX);
+                    float wh = (float)(maxY - minY);
+                    if (ww <= 0 || wh <= 0) continue;
+
+                    SKColor color =
+                        loc.StrandNumber == 0 ? SKColors.White :
+                        loc.StrandNumber == 1 ? SKColors.Red :
+                        loc.StrandNumber == 2 ? SKColors.Blue :
+                        loc.StrandNumber == 3 ? SKColors.Lime :
+                        SKColors.Yellow;
+
+                    _turnNumbers.Add((pt, $"{loc.TurnNumber}", color, ww, wh));
+                }
+            }
+
             _geometryPath = path;
         }
 
@@ -332,6 +360,7 @@ namespace MTLTestUI.Views
             drawingContext.Custom(new CustomDrawOp(
                 Bounds,
                 _geometryPath!,
+                _turnNumbers!,
                 _meshpoints!,
                 matrix,
                 WorldBounds!,
@@ -352,6 +381,7 @@ namespace MTLTestUI.Views
     {
         public CustomDrawOp(Rect bounds,
                             SKPath geometryPath,
+                            List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)> turnNumbers,
                             List<SKPoint> mesh,
                             SKMatrix transform,
                             BoundingBox world,
@@ -369,12 +399,15 @@ namespace MTLTestUI.Views
             GeometryPath = geometryPath;
             _transform = transform;
             World = world;
+            _turnNumbers = turnNumbers;
             _showCursor = showCursor;
             _cursorWorld = cursorWorld;
             _hoverTag = hoverTag;
             _hoverLocation = hoverLocation;
             _hoverTagType = hoverTagType;
         }
+
+        private readonly List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)> _turnNumbers;
 
         private readonly int? _hoverTag;
         private readonly LocationKey? _hoverLocation;
@@ -426,6 +459,88 @@ namespace MTLTestUI.Views
             }
 
             canvas.Restore();
+
+            // Uniform-sized turn numbers: choose one size so ALL (fittable) labels fit.
+            // If a conductor is too small to fit even the minimum font size, skip just that label.
+            if (_turnNumbers is not null && _turnNumbers.Count > 0)
+            {
+                using SKPaint pText = new()
+                {
+                    IsAntialias = true,
+                    Typeface = SKTypeface.FromFamilyName("Consolas")
+                };
+
+                float scaleX = Math.Abs(_transform.ScaleX);
+                float scaleY = Math.Abs(_transform.ScaleY);
+                if (scaleX <= 0 || scaleY <= 0) return;
+
+                const float baseSize = 20f;   // trial measurement size
+                const float inset = 0.80f;    // occupy 80% of bbox
+                const float minSize = 6f;
+                const float maxSize = 200f;
+
+                pText.TextSize = baseSize;
+                pText.GetFontMetrics(out var fmTrial);
+                float trialHeight = fmTrial.Descent - fmTrial.Ascent;
+                if (trialHeight <= 0) return;
+
+                float minAllowedScale = minSize / baseSize;
+                float globalScaleFactor = float.PositiveInfinity;
+
+                // Track only labels that can at least fit min font size
+                var usableLabels = new List<(SKPoint Center, string Text, SKColor Color, float W, float H)>(_turnNumbers.Count);
+
+                foreach (var (center, text, color, worldW, worldH) in _turnNumbers)
+                {
+                    if (worldW <= 0 || worldH <= 0) continue;
+
+                    float trialWidth = pText.MeasureText(text);
+                    if (trialWidth <= 0) continue;
+
+                    float availPxW = worldW * scaleX * inset;
+                    float availPxH = worldH * scaleY * inset;
+                    if (availPxW <= 0 || availPxH <= 0) continue;
+
+                    float scaleFactorW = availPxW / trialWidth;
+                    float scaleFactorH = availPxH / trialHeight;
+                    float labelFactor = MathF.Min(scaleFactorW, scaleFactorH);
+
+                    // If even the minimum size would be too large, skip this label entirely
+                    if (labelFactor < minAllowedScale)
+                        continue;
+
+                    usableLabels.Add((center, text, color, worldW, worldH));
+
+                    if (labelFactor < globalScaleFactor)
+                        globalScaleFactor = labelFactor;
+                }
+
+                if (usableLabels.Count == 0) return; // nothing can fit
+
+                if (float.IsInfinity(globalScaleFactor) || globalScaleFactor <= 0)
+                    return;
+
+                float targetSize = baseSize * globalScaleFactor;
+                if (targetSize < minSize) targetSize = minSize;
+                else if (targetSize > maxSize) targetSize = maxSize;
+
+                pText.TextSize = targetSize;
+                pText.GetFontMetrics(out var fmFinal);
+                float finalHeight = fmFinal.Descent - fmFinal.Ascent;
+                float baselineCenterOffset = (finalHeight / 2f) - fmFinal.Descent;
+
+                foreach (var (center, text, color, _, _) in usableLabels)
+                {
+                    pText.Color = color;
+                    float textWidth = pText.MeasureText(text);
+                    var screenPt = _transform.MapPoint(center);
+                    lease.SkCanvas.DrawText(
+                        text,
+                        screenPt.X - textWidth / 2f,
+                        screenPt.Y + baselineCenterOffset,
+                        pText);
+                }
+            }
 
             if (_showCursor)
             {

@@ -452,3 +452,5 @@ $RECYCLE.BIN/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+MTLTestUI.Desktop/tempgeo.msh
+MTLTestUI.Desktop/tempgeo.geo

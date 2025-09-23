@@ -50,12 +50,18 @@ namespace MTLTestUI
             var total = Stopwatch.StartNew();
 
             //tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
-            tfmr = Measure("TestTransformer", TestModels.TestTransformer);
+            tfmr = Measure("ModelWinding", TestModels.ModelWinding);
             geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
             var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
             Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
-            mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("bin/Debug/net9.0/case.geo",1000.0, 1));
+            mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("bin/Debug/net9.0/case.geo", 1000.0, 1));
 
+            total.Stop();
+            Console.WriteLine($"MainModel constructor total: {total.Elapsed.TotalMilliseconds:F3} ms");
+        }
+
+        public void RunOnce()
+        {
             double freq = 60.0;
             int excitedTurn = 0;
             int excitedStrand = 0;
@@ -125,11 +131,7 @@ namespace MTLTestUI
                     }
                 }
             }
-
             fem.Solve();
-
-            total.Stop();
-            Console.WriteLine($"MainModel constructor total: {total.Elapsed.TotalMilliseconds:F3} ms");
         }
     }
 

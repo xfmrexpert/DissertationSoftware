@@ -21,6 +21,35 @@
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach"
+        },
+         {
+            "name": "Start dotnet test (wait)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "dotnet",
+            "args": [
+            "test",
+            "${workspaceFolder}/DissertationSoftware.Tests/DissertationSoftware.Tests.csproj",
+            "--no-build",
+            "--nologo",
+            "--filter", "FullyQualifiedName~DissertationSoftware.Tests.UnitTest1.InductanceTest"
+            ],
+            "env": { "VSTEST_HOST_DEBUG": "1" },
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Attach to .NET testhost",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": true
         }
+    ],
+    "compounds": [
+    {
+        "name": "Debug tests (attach)",
+        "configurations": ["Start dotnet test (wait)", "Attach to .NET testhost"]
+    }
     ]
 }

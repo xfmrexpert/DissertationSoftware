@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TfmrLib", "..\TfmrLibrary\T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCCalc", "LCCalc\LCCalc.csproj", "{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DissertationSoftware.Tests", "DissertationSoftware.Tests\DissertationSoftware.Tests.csproj", "{3798A0E1-0901-4F21-94D8-22F6B9864F9F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -123,6 +125,18 @@ Global
 		{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}.Release|x64.Build.0 = Release|Any CPU
 		{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}.Release|x86.ActiveCfg = Release|Any CPU
 		{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}.Release|x86.Build.0 = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|x64.Build.0 = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Debug|x86.Build.0 = Debug|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|x64.ActiveCfg = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|x64.Build.0 = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|x86.ActiveCfg = Release|Any CPU
+		{3798A0E1-0901-4F21-94D8-22F6B9864F9F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

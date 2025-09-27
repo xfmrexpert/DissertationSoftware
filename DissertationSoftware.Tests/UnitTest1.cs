@@ -106,13 +106,13 @@ public class UnitTest1
         var meshGen = new MeshGenerator();
         var geometry = tfmr.GenerateGeometry();
         meshGen.AddGeometry(geometry);
-        var mesh = meshGen.GenerateMesh("case.geo", 1000.0, 1);
+        var mesh = meshGen.GenerateMesh("case.geo", 100.0, 1);
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
         var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 60.0);
-        var turn_lengths = tfmr.Calc_TurnLengthVector();
-        Console.WriteLine("Turn Lengths (mm):");
-        PrintMatrix(1000.0 * turn_lengths.ToColumnMatrix());
+        var turn_lengths = tfmr.GetTurnLengths_m();
+        Console.WriteLine("Turn Lengths (m):");
+        PrintMatrix(turn_lengths.ToColumnMatrix());
         var one_over_turn_lengths = turn_lengths.Map(x => 1.0 / x);
-        PrintMatrix(1000.0 * Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L);
+        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L);
     }
 }

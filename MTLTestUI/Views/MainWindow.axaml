@@ -7,6 +7,8 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="MTLTestUI.Views.MainWindow"
         Icon="/Assets/avalonia-logo.ico"
-        Title="MTLTestUI">
+        Title="MTLTestUI"
+        MinWidth="1600"
+        MinHeight="900">
         <views:MainView />
 </Window>

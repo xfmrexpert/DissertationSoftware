@@ -1,5 +1,7 @@
 ﻿using TfmrLib;
 using GeometryLib;
+using MathNet.Numerics.Data.Text;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace DissertationSoftware.Tests;
 
@@ -83,6 +85,20 @@ public class UnitTest1
         return tfmr;
     }
 
+    private static void PrintMatrix(Matrix<double> matrix)
+    {
+        int rows = matrix.RowCount;
+        int cols = matrix.ColumnCount;
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                Console.Write($"{matrix[i, j]:F4} ");
+            }
+            Console.WriteLine();
+        }
+    }
+
     [Fact]
     public void InductanceTest()
     {
@@ -93,5 +109,10 @@ public class UnitTest1
         var mesh = meshGen.GenerateMesh("case.geo", 1000.0, 1);
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
         var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 60.0);
+        var turn_lengths = tfmr.Calc_TurnLengthVector();
+        Console.WriteLine("Turn Lengths (mm):");
+        PrintMatrix(1000.0 * turn_lengths.ToColumnMatrix());
+        var one_over_turn_lengths = turn_lengths.Map(x => 1.0 / x);
+        PrintMatrix(1000.0 * Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L);
     }
 }

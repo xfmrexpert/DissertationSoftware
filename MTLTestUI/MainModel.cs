@@ -49,8 +49,9 @@ namespace MTLTestUI
             Console.WriteLine("MainModel construction timing start");
             var total = Stopwatch.StartNew();
 
-            //tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
-            tfmr = Measure("ModelWinding", TestModels.ModelWinding);
+            tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
+            //tfmr = Measure("ModelWinding", TestModels.ModelWinding);
+            //tfmr = Measure("TestTransformer", TestModels.TestTransformer);
             geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
             var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
             Measure("AddGeometry", () => meshgen.AddGeometry(geometry));

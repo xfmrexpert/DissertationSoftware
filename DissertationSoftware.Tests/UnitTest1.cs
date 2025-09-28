@@ -17,8 +17,8 @@ public class UnitTest1
                 CoreLegRadius_mm = Conversions.in_to_mm(0.0),
                 NumLegs = 1,
                 NumWoundLegs = 1,
-                WindowWidth_mm = Conversions.in_to_mm(40.0),
-                WindowHeight_mm = Conversions.in_to_mm(40.0)
+                WindowWidth_mm = Conversions.in_to_mm(120.0),
+                WindowHeight_mm = Conversions.in_to_mm(120.0)
             },
             Windings =
             {
@@ -103,16 +103,40 @@ public class UnitTest1
     public void InductanceTest()
     {
         var tfmr = TwoTurnTfmr();
-        var meshGen = new MeshGenerator();
-        var geometry = tfmr.GenerateGeometry();
-        meshGen.AddGeometry(geometry);
-        var mesh = meshGen.GenerateMesh("case.geo", 100.0, 1);
+
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
-        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 60.0);
+        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 0.0);
         var turn_lengths = tfmr.GetTurnLengths_m();
         Console.WriteLine("Turn Lengths (m):");
         PrintMatrix(turn_lengths.ToColumnMatrix());
         var one_over_turn_lengths = turn_lengths.Map(x => 1.0 / x);
-        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L);
+        Console.WriteLine("Inductance Matrix (uH):");
+        PrintMatrix(L * 1e6);
+        Console.WriteLine("Inductance per unit length (uH/m):");
+        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L * 1e6);
+        var L_PUL = Matrix<double>.Build.Dense(L.RowCount, L.ColumnCount);
+        for (int i = 0; i < L.RowCount; i++)
+        {
+            for (int j = 0; j < L.ColumnCount; j++)
+            {
+                L_PUL[i, j] = L[i, j] / turn_lengths[i];
+            }
+        }
+        Console.WriteLine("Inductance per unit length (uH/m) calculated manually:");
+        PrintMatrix(L_PUL * 1e6);
+
+        var expected_L = Matrix<double>.Build.DenseOfArray(new double[,]
+        {
+            { 2.681e-6, 0.5448e-6 },
+            { 0.5448e-6, 4.845e-6 }
+        });
+
+        for (int i = 0; i < expected_L.RowCount; i++)
+        {
+            for (int j = 0; j < expected_L.ColumnCount; j++)
+            {
+                Assert.InRange(L[i, j], expected_L[i, j] * 0.95, expected_L[i, j] * 1.05);
+            }
+        }
     }
 }

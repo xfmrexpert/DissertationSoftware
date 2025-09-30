@@ -17,8 +17,8 @@ public class UnitTest1
                 CoreLegRadius_mm = Conversions.in_to_mm(0.0),
                 NumLegs = 1,
                 NumWoundLegs = 1,
-                WindowWidth_mm = Conversions.in_to_mm(120.0),
-                WindowHeight_mm = Conversions.in_to_mm(120.0)
+                WindowWidth_mm = Conversions.in_to_mm(60.0),
+                WindowHeight_mm = Conversions.in_to_mm(60.0)
             },
             Windings =
             {
@@ -131,11 +131,28 @@ public class UnitTest1
             { 0.5448e-6, 4.845e-6 }
         });
 
+        var analyticMatrixCalculator = new TfmrLib.AnalyticMatrixCalculator();
+        var L_PUL_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, 1.0);
+        Console.WriteLine("Inductance per unit length (uH/m) from analytic calcs:");
+        PrintMatrix(L_PUL_analytic * 1e6);
+
+        var L_analytic = Matrix<double>.Build.Dense(L.RowCount, L.ColumnCount);
+        for (int i = 0; i < L.RowCount; i++)
+        {
+            for (int j = 0; j < L.ColumnCount; j++)
+            {
+                L_analytic[i, j] = L_PUL_analytic[i, j] * turn_lengths[i];
+            }
+        }
+
+        Console.WriteLine("Inductance Matrix (uH) from analytic calcs:");
+        PrintMatrix(L_analytic * 1e6);
+
         for (int i = 0; i < expected_L.RowCount; i++)
         {
             for (int j = 0; j < expected_L.ColumnCount; j++)
             {
-                Assert.InRange(L[i, j], expected_L[i, j] * 0.95, expected_L[i, j] * 1.05);
+                Assert.InRange(L[i, j], L_analytic[i, j] * 0.95, L_analytic[i, j] * 1.05);
             }
         }
     }

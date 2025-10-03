@@ -10,6 +10,8 @@ public class UnitTest1
 
     private static Transformer TwoTurnTfmr()
     {
+        double WindowHt = Conversions.in_to_mm(120.0);
+
         var tfmr = new Transformer()
         {
             Core = new Core
@@ -17,8 +19,8 @@ public class UnitTest1
                 CoreLegRadius_mm = Conversions.in_to_mm(0.0),
                 NumLegs = 1,
                 NumWoundLegs = 1,
-                WindowWidth_mm = Conversions.in_to_mm(60.0),
-                WindowHeight_mm = Conversions.in_to_mm(60.0)
+                WindowWidth_mm = WindowHt,
+                WindowHeight_mm = WindowHt
             },
             Windings =
             {
@@ -37,7 +39,8 @@ public class UnitTest1
                                     StrandHeight_mm = Conversions.in_to_mm(0.3),
                                     StrandWidth_mm = Conversions.in_to_mm(0.085),
                                     CornerRadius_mm = Conversions.in_to_mm(0.032),
-                                    InsulationThickness_mm = Conversions.in_to_mm(0.018)
+                                    InsulationThickness_mm = Conversions.in_to_mm(0.018),
+                                    rho_c = 0
                                 },
                                 NumDiscs = 1,
                                 TurnsPerDisc = 1,
@@ -46,7 +49,7 @@ public class UnitTest1
                                 {
                                 },
                                 InnerRadius_mm = Conversions.in_to_mm(15.25),
-                                DistanceAboveBottomYoke_mm = Conversions.in_to_mm(15.0)
+                                DistanceAboveBottomYoke_mm = WindowHt / 2
                             }
                         }
                     }
@@ -66,7 +69,8 @@ public class UnitTest1
                                     StrandHeight_mm = Conversions.in_to_mm(0.3),
                                     StrandWidth_mm = Conversions.in_to_mm(0.085),
                                     CornerRadius_mm = Conversions.in_to_mm(0.032),
-                                    InsulationThickness_mm = Conversions.in_to_mm(0.018)
+                                    InsulationThickness_mm = Conversions.in_to_mm(0.018),
+                                    rho_c = 0
                                 },
                                 NumDiscs = 1,
                                 TurnsPerDisc = 1,
@@ -75,7 +79,7 @@ public class UnitTest1
                                 {
                                 },
                                 InnerRadius_mm = Conversions.in_to_mm(25.25),
-                                DistanceAboveBottomYoke_mm = Conversions.in_to_mm(15.0)
+                                DistanceAboveBottomYoke_mm = WindowHt / 2
                             }
                         }
                     }
@@ -105,7 +109,7 @@ public class UnitTest1
         var tfmr = TwoTurnTfmr();
 
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
-        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 0.0);
+        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 1.0);
         var turn_lengths = tfmr.GetTurnLengths_m();
         Console.WriteLine("Turn Lengths (m):");
         PrintMatrix(turn_lengths.ToColumnMatrix());
@@ -141,7 +145,7 @@ public class UnitTest1
         {
             for (int j = 0; j < L.ColumnCount; j++)
             {
-                L_analytic[i, j] = L_PUL_analytic[i, j] * turn_lengths[i];
+                L_analytic[i, j] = L_PUL_analytic[i, j];// * turn_lengths[i];
             }
         }
 

@@ -160,4 +160,65 @@ public class UnitTest1
             }
         }
     }
+
+    [Fact]
+    public void CapacitanceTest()
+    {
+        var tfmr = TwoTurnTfmr();
+        Console.WriteLine($"Wdg1 radius: {tfmr.Windings[1].Segments[0].Geometry.InnerRadius_mm}");
+        tfmr.Windings[1].Segments[0].Geometry.InnerRadius_mm = Conversions.in_to_mm(15.25 + 0.085 + 2 * 0.018);
+        Console.WriteLine($"Wdg1 radius after: {tfmr.Windings[1].Segments[0].Geometry.InnerRadius_mm}");
+
+        var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
+        var C = femMatrixCalculator.Calc_Cmatrix(tfmr);
+        var turn_lengths = tfmr.GetTurnLengths_m();
+        Console.WriteLine("Turn Lengths (m):");
+        PrintMatrix(turn_lengths.ToColumnMatrix());
+        var one_over_turn_lengths = turn_lengths.Map(x => 1.0 / x);
+        Console.WriteLine("Capacitance Matrix (pF):");
+        PrintMatrix(C * 1e12);
+        Console.WriteLine("Capacitance per unit length (pF/m):");
+        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * C * 1e12);
+        var C_PUL = Matrix<double>.Build.Dense(C.RowCount, C.ColumnCount);
+        for (int i = 0; i < C.RowCount; i++)
+        {
+            for (int j = 0; j < C.ColumnCount; j++)
+            {
+               C_PUL[i, j] = C[i, j] / turn_lengths[i];
+            }
+        }
+        Console.WriteLine("Capacitance per unit length (pF/m) calculated manually:");
+        PrintMatrix(C_PUL * 1e12);
+
+        var expected_C = Matrix<double>.Build.DenseOfArray(new double[,]
+        {
+            { 2.681e-6, 0.5448e-6 },
+            { 0.5448e-6, 4.845e-6 }
+        });
+
+        var analyticMatrixCalculator = new TfmrLib.AnalyticMatrixCalculator();
+        var C_PUL_analytic = analyticMatrixCalculator.Calc_Cmatrix(tfmr);
+        Console.WriteLine("Capacitance per unit length (pF/m) from analytic calcs:");
+        PrintMatrix(C_PUL_analytic * 1e12);
+
+        var C_analytic = Matrix<double>.Build.Dense(C.RowCount, C.ColumnCount);
+        for (int i = 0; i < C.RowCount; i++)
+        {
+            for (int j = 0; j < C.ColumnCount; j++)
+            {
+                C_analytic[i, j] = C_PUL_analytic[i, j];// * turn_lengths[i];
+            }
+        }
+
+        Console.WriteLine("Capacitance Matrix (pF) from analytic calcs:");
+        PrintMatrix(C_analytic * 1e12);
+
+        for (int i = 0; i < expected_C.RowCount; i++)
+        {
+            for (int j = 0; j < expected_C.ColumnCount; j++)
+            {
+                Assert.InRange(C[i, j], C_analytic[i, j] * 0.95, C_analytic[i, j] * 1.05);
+            }
+        }
+    }
 }

@@ -27,22 +27,22 @@ namespace MTLTestApp
             //await Calc2();
         }
 
-        static void FerasTfmr()
-        {
-            var tfmr = new Transformer();
-            var wdg = new Winding();
-            tfmr.Windings.Add(wdg);
-            wdg.r_inner = 2.27 / (2.0 * Math.PI) - 0.012;
-            wdg.num_discs = 6;
-            wdg.turns_per_disc = 6;
-            wdg.h_cond = 0.012;
-            wdg.t_cond = 0.003;
-            wdg.t_ins = 0.0005;
-            wdg.h_spacer = 6;
-            wdg.dist_wdg_tank_bottom = 0.040;
-            wdg.dist_wdg_tank_right = 0.040;
-            wdg.dist_wdg_tank_top = 0.040;
-        }
+        // static void FerasTfmr()
+        // {
+        //     var tfmr = new Transformer();
+        //     var wdg = new Winding();
+        //     tfmr.Windings.Add(wdg);
+        //     wdg.r_inner = 2.27 / (2.0 * Math.PI) - 0.012;
+        //     wdg.num_discs = 6;
+        //     wdg.turns_per_disc = 6;
+        //     wdg.h_cond = 0.012;
+        //     wdg.t_cond = 0.003;
+        //     wdg.t_ins = 0.0005;
+        //     wdg.h_spacer = 6;
+        //     wdg.dist_wdg_tank_bottom = 0.040;
+        //     wdg.dist_wdg_tank_right = 0.040;
+        //     wdg.dist_wdg_tank_top = 0.040;
+        // }
 
         static async Task RunTasksWithProgress(Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>> taskDefinitions, List<DataFrame> measuredResponses, DataFrame measuredImpedances)
         {
@@ -112,37 +112,35 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            string directoryPath = @".\PULImpedances\Core"; // Specify the directory path
+            string directoryPath = @"./PULImpedances/Core"; // Specify the directory path
 
-            var measuredData = ReadMeasuredData(@".\Measured\NoCore");
-            var impedanceData = ReadImpedanceData(@".\Measured\Core");
+            var measuredData = ReadMeasuredData(@"./Measured/NoCore");
+            var impedanceData = ReadImpedanceData(@"./Measured/Core");
 
             //Show3DPlot_Meas(measuredData);
 
-            var tfmr = new Transformer();
-            var wdg = new Winding();
-            tfmr.Windings.Add(wdg);
-
+            var tfmr = TestModels.ModelWinding();
+            
             var analyticMatrixCalc = new AnalyticMatrixCalculator();
             var getDPMatrixCalc = new ExtMatrixCalculator(directoryPath);
 
-            tfmr.ins_loss_factor = 0.02;
-            wdg.eps_paper = 2.0;
+            // tfmr.ins_loss_factor = 0.02;
+            // wdg.eps_paper = 2.0;
 
-            num_turns = wdg.num_turns;
+            // num_turns = wdg.num_turns;
 
             var analyticModel = new MTLModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
             var getDPModel = new MTLModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
 
-            wdg.Rs = 0;
-            wdg.Ls = 1.5e-6;
-            wdg.Rl = 10.5;
-            wdg.Ll = 1.5e-6;
-            getDPMatrixCalc.InductanceFudgeFactor = 0.88;
-            getDPMatrixCalc.SelfCapacitanceFudgeFactor = 1.0;
-            getDPMatrixCalc.MutualCapacitanceFudgeFactor = 1.35;
-            wdg.ResistanceFudgeFactor = 1.0;
+            // wdg.Rs = 0;
+            // wdg.Ls = 1.5e-6;
+            // wdg.Rl = 10.5;
+            // wdg.Ll = 1.5e-6;
+            // getDPMatrixCalc.InductanceFudgeFactor = 0.88;
+            // getDPMatrixCalc.SelfCapacitanceFudgeFactor = 1.0;
+            // getDPMatrixCalc.MutualCapacitanceFudgeFactor = 1.35;
+            // wdg.ResistanceFudgeFactor = 1.0;
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {
@@ -166,21 +164,19 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            string directoryPath = @"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\PULImpedances"; // Specify the directory path
+            string directoryPath = @"~/src/DissertationSoftware/MTLTestApp/bin/Debug/net8.0/PULImpedances"; // Specify the directory path
 
             var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
             var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
 
-            var tfmr = new Transformer();
-            var wdg = new Winding();
-            tfmr.Windings.Add(wdg);
+            var tfmr = TestModels.ModelWinding();
 
             var analyticMatrixCalc = new AnalyticMatrixCalculator();
 
-            wdg.num_discs = 1;
-            wdg.turns_per_disc = 2;
+            // wdg.num_discs = 1;
+            // wdg.turns_per_disc = 2;
 
-            num_turns = wdg.num_turns;
+            // num_turns = wdg.num_turns;
 
             var analyticModel = new MTLModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
             var lumpedModel = new LumpedModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);

@@ -9,6 +9,9 @@ using Spectre.Console;
 using System.Numerics;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Complex;
+using Microsoft.VisualBasic;
 
 namespace MTLTestApp
 {
@@ -19,10 +22,40 @@ namespace MTLTestApp
         static double max_freq = 1e6;
         static int num_freqs = 1000;
 
-        static int num_turns;
+        static Transformer tfmr;
 
         static async Task Main(string[] args)
         {
+            // Control.UseNativeMKL();
+            // var A = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.CreateRandom(560, 560, new MathNet.Numerics.Distributions.ContinuousUniform());
+            // var lu = A.LU();                      // should succeed
+            // var b  = MathNet.Numerics.LinearAlgebra.Complex.DenseVector.CreateRandom(560, new MathNet.Numerics.Distributions.ContinuousUniform());
+            // var x  = lu.Solve(b);
+            // // Small test matrix (double-precision complex)
+            // A = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix.OfArray(new Complex[,] {
+            //     { new Complex(1.0, 1.0), new Complex(2.0, -1.0) },
+            //     { new Complex(3.0, 0.5), new Complex(4.0, -0.5) }
+            // });
+
+            // Console.WriteLine($"A: {A.RowCount}x{A.ColumnCount}, type={A.GetType().Name}");
+
+            // try
+            // {
+            //     lu = A.LU(); // MKL zgetrf via MathNet
+            //     //Console.WriteLine($"LU ok. Nonsingular={lu.IsNonSingular}, det={lu.Determinant}");
+            //     // sanity: solve A x = b
+            //     b = MathNet.Numerics.LinearAlgebra.Complex.DenseVector.OfArray(new Complex[] { 1, 2 });
+            //     x = lu.Solve(b);
+            //     var r = A * x - b;
+            //     Console.WriteLine($"||Ax-b||_2 = {r.L2Norm()}");
+            //     //return 0;
+            // }
+            // catch (Exception ex)
+            // {
+            //     Console.WriteLine("LU threw:");
+            //     Console.WriteLine(ex.ToString());
+            //     //return 2;
+            // }
             await Calc1();
             //await Calc2();
         }
@@ -119,7 +152,7 @@ namespace MTLTestApp
 
             //Show3DPlot_Meas(measuredData);
 
-            var tfmr = TestModels.ModelWinding();
+            tfmr = TestModels.ModelWinding();
             
             var analyticMatrixCalc = new AnalyticMatrixCalculator();
             var getDPMatrixCalc = new ExtMatrixCalculator(directoryPath);
@@ -169,7 +202,7 @@ namespace MTLTestApp
             var measuredData = ReadMeasuredData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
             var impedanceData = ReadImpedanceData(@"C:\Users\tcraymond\source\repos\DissertationSoftware\MTLTestApp\bin\Debug\net8.0\9FEB2025_NoCore");
 
-            var tfmr = TestModels.ModelWinding();
+            tfmr = TestModels.ModelWinding();
 
             var analyticMatrixCalc = new AnalyticMatrixCalculator();
 
@@ -213,7 +246,8 @@ namespace MTLTestApp
             layout.SetValue("showlegend", true);
 
             var colors = new[] { "Green", "Blue", "Red", "Orange", "Purple", "Brown" };
-            
+
+            int num_turns = tfmr.NumConductors;
 
             var charts = new List<GenericChart>();
             int i = 0;

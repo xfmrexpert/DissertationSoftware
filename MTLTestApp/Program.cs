@@ -19,8 +19,8 @@ namespace MTLTestApp
     {
 
         static double min_freq = 100e3;
-        static double max_freq = 1e6;
-        static int num_freqs = 1000;
+        static double max_freq = 100e3;
+        static int num_freqs = 1;
 
         static Transformer tfmr;
 

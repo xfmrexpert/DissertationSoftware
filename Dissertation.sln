@@ -15,7 +15,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeometryLib", "..\GeomLibra
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeometryLibTests", "..\GeomLibrary\GeometryLibTests\GeometryLibTests.csproj", "{1AFECFD6-747D-4E9B-9492-9F40F643BCA4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TfmrLib", "..\TfmrLibrary\TfmrLib.csproj", "{9159828D-B46C-6979-ED63-8A8B2BF6F86D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TfmrLib", "..\TfmrLibrary\src\TfmrLib\TfmrLib.csproj", "{9159828D-B46C-6979-ED63-8A8B2BF6F86D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCCalc", "LCCalc\LCCalc.csproj", "{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}"
 EndProject

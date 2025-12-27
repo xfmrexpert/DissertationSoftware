@@ -84,7 +84,7 @@ namespace MTLTestUI
             {
                 Properties = new Dictionary<string, double> {
                 { "mu_r", 1.0 },
-                { "epsr", tfmr.Windings[0].eps_paper },
+                { "epsr", tfmr.Windings[0].Segments[0].Geometry.ConductorType.eps_paper },
                 { "loss_tan", tfmr.ins_loss_factor } }
             };
 

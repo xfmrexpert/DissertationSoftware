@@ -382,7 +382,7 @@ namespace MTLTestUI.Views
         public CustomDrawOp(Rect bounds,
                             SKPath geometryPath,
                             List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)> turnNumbers,
-                            List<SKPoint> mesh,
+                            IList<SKPoint> mesh,
                             SKMatrix transform,
                             BoundingBox world,
                             bool showCursor,
@@ -392,10 +392,7 @@ namespace MTLTestUI.Views
                             TagType hoverTagType)
         {
             Bounds = bounds;
-            if (mesh is not null)
-            {
-                Mesh = [.. mesh];
-            }
+            Mesh = mesh;
             GeometryPath = geometryPath;
             _transform = transform;
             World = world;
@@ -417,7 +414,7 @@ namespace MTLTestUI.Views
 
         public BoundingBox World { get; }
         public Rect Bounds { get; }
-        public SKPoint[] Mesh { get; }
+        public IList<SKPoint>? Mesh { get; }
         public SKPath GeometryPath { get; }
 
         private readonly SKMatrix _transform;
@@ -444,9 +441,9 @@ namespace MTLTestUI.Views
             using SKPaint pMesh = new() { Color = SKColors.White, IsAntialias = true, StrokeWidth = 1f / Math.Max(1f, _transform.ScaleX) };
 
             // Mesh
-            if (Mesh?.Length > 1)
+            if (Mesh?.Count > 1)
             {
-                for (int i = 0; i < Mesh.Length; i += 2)
+                for (int i = 0; i < Mesh.Count; i += 2)
                 {
                     canvas.DrawLine(Mesh[i], Mesh[i + 1], pMesh);
                 }

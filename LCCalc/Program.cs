@@ -7,6 +7,7 @@ using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Text.RegularExpressions;
 using TfmrLib;
 
@@ -386,7 +387,7 @@ namespace LCCalc
         }
 
 #if false
-        public void CalcInductanceMatrix_FEMM(Geometry geom, double freq, int order = 2)
+        public void CalcInductanceMatrix_FEMM(Geometry geom, double freq, int order = 2, string femmInputFileName = "case.fem", string fknExecutablePath = "./bin/fkn.exe")
         {
             Matrix<double> L_getdp = Matrix<double>.Build.Dense(wdg.num_turns, wdg.num_turns);
 
@@ -396,7 +397,7 @@ namespace LCCalc
             //Parallel.For(0, n_turns, t =>
             for (int t = 0; t < wdg.num_turns; t++)
             {
-                L_getdp.SetRow(t, CalcInductance_FEMM(geom, freq, t));
+                L_getdp.SetRow(t, CalcInductance_FEMM(geom, freq, t, femmInputFileName, fknExecutablePath));
                 (double r, double z) = wdg.GetTurnMidpoint(t);
                 //Console.WriteLine($"Self inductance for turn {t}: {L_getdp[t, t] / r / 1e-9}");
             }
@@ -433,7 +434,7 @@ namespace LCCalc
             DelimitedWriter.Write($"L_femm_{freq.ToString("0.00E0")}.csv", L_getdp, ",");
         }
 
-        public Vector_d CalcInductance_FEMM(Geometry geo, double freq, int turn)
+        public Vector_d CalcInductance_FEMM(Geometry geo, double freq, int turn, string femmInputFileName = "case.fem", string fknExecutablePath = "./bin/fkn.exe")
         {
             FEMMFile femm = new FEMMFile();
             Dictionary<int, int> blockMap = new Dictionary<int, int>();
@@ -474,10 +475,10 @@ namespace LCCalc
 
             femm.CircuitProps[turn].TotalAmps_re = 1.0f;
 
-            // TODO: Don't hard code this shit you lazy twat
-            femm.ToFile("case.fem");
+            femm.ToFile(femmInputFileName);
 
-            Cli.Wrap("./bin/fkn.exe").WithArguments("case").ExecuteAsync().GetAwaiter().GetResult();
+            var caseName = Path.GetFileNameWithoutExtension(femmInputFileName);
+            Cli.Wrap(fknExecutablePath).WithArguments(caseName).ExecuteAsync().GetAwaiter().GetResult();
 
             string filePath = "inductances.txt";
             Vector_d inductances = Vector_d.Build.Dense(wdg.num_turns);

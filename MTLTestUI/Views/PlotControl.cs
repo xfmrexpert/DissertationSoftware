@@ -446,10 +446,7 @@ namespace MTLTestUI.Views
             // Mesh
             if (Mesh?.Length > 1)
             {
-                for (int i = 0; i < Mesh.Length; i += 2)
-                {
-                    canvas.DrawLine(Mesh[i], Mesh[i + 1], pMesh);
-                }
+                canvas.DrawPoints(SKPointMode.Lines, Mesh, pMesh);
             }
 
             // Geometry

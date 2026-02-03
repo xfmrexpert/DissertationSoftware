@@ -46,19 +46,26 @@ namespace MTLTestUI
 
         public MainModel()
         {
-            Console.WriteLine("MainModel construction timing start");
+        }
+
+        public async Task InitializeAsync()
+        {
+            Console.WriteLine("MainModel initialization start");
             var total = Stopwatch.StartNew();
 
-            tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
-            //tfmr = Measure("ModelWinding", TestModels.ModelWinding);
-            //tfmr = Measure("TestTransformer", TestModels.TestTransformer);
-            geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
-            var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
-            Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
-            mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("bin/Debug/net9.0/case.geo", 1000.0, 1));
+            await Task.Run(() =>
+            {
+                tfmr = Measure("TB904_SinglePhase", TestModels.TB904_SinglePhase);
+                //tfmr = Measure("ModelWinding", TestModels.ModelWinding);
+                //tfmr = Measure("TestTransformer", TestModels.TestTransformer);
+                geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
+                var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
+                Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
+                mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("bin/Debug/net9.0/case.geo", 1000.0, 1));
+            });
 
             total.Stop();
-            Console.WriteLine($"MainModel constructor total: {total.Elapsed.TotalMilliseconds:F3} ms");
+            Console.WriteLine($"MainModel initialization total: {total.Elapsed.TotalMilliseconds:F3} ms");
         }
 
         public void RunOnce()

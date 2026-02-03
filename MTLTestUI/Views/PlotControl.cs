@@ -1,4 +1,4 @@
-﻿// Copyright 2023, T. C. Raymond
+// Copyright 2023, T. C. Raymond
 // SPDX-License-Identifier: MIT
 
 using Avalonia;

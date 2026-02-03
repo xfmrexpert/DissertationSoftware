@@ -1,4 +1,4 @@
-﻿// Copyright 2023, T. C. Raymond
+// Copyright 2023, T. C. Raymond
 // SPDX-License-Identifier: MIT
 
 using Avalonia;
@@ -382,7 +382,7 @@ namespace MTLTestUI.Views
         public CustomDrawOp(Rect bounds,
                             SKPath geometryPath,
                             List<(SKPoint Center, string Text, SKColor Color, float WorldW, float WorldH)> turnNumbers,
-                            List<SKPoint> mesh,
+                            IList<SKPoint> mesh,
                             SKMatrix transform,
                             BoundingBox world,
                             bool showCursor,
@@ -392,10 +392,7 @@ namespace MTLTestUI.Views
                             TagType hoverTagType)
         {
             Bounds = bounds;
-            if (mesh is not null)
-            {
-                Mesh = [.. mesh];
-            }
+            Mesh = mesh;
             GeometryPath = geometryPath;
             _transform = transform;
             World = world;
@@ -417,7 +414,7 @@ namespace MTLTestUI.Views
 
         public BoundingBox World { get; }
         public Rect Bounds { get; }
-        public SKPoint[] Mesh { get; }
+        public IList<SKPoint>? Mesh { get; }
         public SKPath GeometryPath { get; }
 
         private readonly SKMatrix _transform;
@@ -444,7 +441,7 @@ namespace MTLTestUI.Views
             using SKPaint pMesh = new() { Color = SKColors.White, IsAntialias = true, StrokeWidth = 1f / Math.Max(1f, _transform.ScaleX) };
 
             // Mesh
-            if (Mesh?.Length > 1)
+            if (Mesh?.Count > 1)
             {
                 canvas.DrawPoints(SKPointMode.Lines, Mesh, pMesh);
             }

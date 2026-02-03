@@ -472,36 +472,48 @@ namespace MTLTestApp
 
         static DataFrame ReadCSVToDF(string filename)
         {
-            // Read all lines from the file
-            string[] allLines = File.ReadAllLines(filename);
+            using var stream = File.OpenRead(filename);
+            int linesToSkip = 27;
+            int linesSkipped = 0;
+            byte[] buffer = new byte[4096];
 
-            // Skip the first 24 lines
-            var dataLines = allLines[27..];
-
-            // Assuming the first non-skipped line contains headers
-            string[] headers = dataLines[0].Split(',');
-
-            // Prepare lists to hold data for each column
-            List<DoubleDataFrameColumn> columns = new List<DoubleDataFrameColumn>();
-            foreach (var header in headers)
+            while (linesSkipped < linesToSkip)
             {
-                columns.Add(new DoubleDataFrameColumn(header, 0));
-            }
-
-            // Parse each line and fill the columns
-            foreach (var line in dataLines[1..]) // Skipping header line in dataLines
-            {
-                var values = line.Split(',');
-                for (int i = 0; i < values.Length; i++)
+                long position = stream.Position;
+                int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                if (bytesRead == 0) break;
+                for (int i = 0; i < bytesRead; i++)
                 {
-                    columns[i].Append(Double.Parse(values[i]));
+                    if (buffer[i] == '\n')
+                    {
+                        linesSkipped++;
+                        if (linesSkipped == linesToSkip)
+                        {
+                            stream.Position = position + i + 1;
+                            break;
+                        }
+                    }
                 }
             }
 
-            // Create the DataFrame
-            DataFrame df = new DataFrame(columns);
+            long headerStartPosition = stream.Position;
 
-            return df;
+            List<byte> headerBytes = new List<byte>();
+            int b;
+            while ((b = stream.ReadByte()) != -1 && b != '\n')
+            {
+                headerBytes.Add((byte)b);
+            }
+
+            string headerLine = System.Text.Encoding.UTF8.GetString(headerBytes.ToArray());
+            int columnCount = headerLine.Split(',').Length;
+
+            stream.Position = headerStartPosition;
+
+            Type[] dataTypes = new Type[columnCount];
+            Array.Fill(dataTypes, typeof(double));
+
+            return DataFrame.LoadCsv(stream, header: true, dataTypes: dataTypes);
         }
     }
 

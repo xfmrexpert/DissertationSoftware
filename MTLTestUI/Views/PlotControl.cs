@@ -17,6 +17,7 @@ using System.Diagnostics;
 using GeometryLib;
 using Geometry = GeometryLib.Geometry;
 using TfmrLib;
+using System.Linq;
 
 namespace MTLTestUI.Views
 {
@@ -443,7 +444,7 @@ namespace MTLTestUI.Views
             // Mesh
             if (Mesh?.Count > 1)
             {
-                canvas.DrawPoints(SKPointMode.Lines, Mesh, pMesh);
+                canvas.DrawPoints(SKPointMode.Lines, [.. Mesh], pMesh);
             }
 
             // Geometry

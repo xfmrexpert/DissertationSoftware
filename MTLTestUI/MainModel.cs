@@ -61,7 +61,7 @@ namespace MTLTestUI
                 geometry = Measure("GenerateGeometry", () => tfmr.GenerateGeometry());
                 var meshgen = Measure("MeshGenerator ctor", () => new MeshGenerator());
                 Measure("AddGeometry", () => meshgen.AddGeometry(geometry));
-                mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("bin/Debug/net9.0/case.geo", 1000.0, 1));
+                //mesh = Measure("GenerateMesh", () => meshgen.GenerateMesh("case.geo", 1000.0, 1));
             });
 
             total.Stop();

@@ -238,14 +238,11 @@ namespace LCCalc
                     try
                     {
                         // Create test transformer model
-                        var transformer = TestModels.TB904_ThreePhase();
+                        var transformer = TestModels.ModelWinding();
 
                         AnsiConsole.MarkupLine($"Using [cyan]{settings.Calculator}[/] calculator...");
                         AnsiConsole.MarkupLine($"Transformer created with [cyan]{transformer.Windings.Count}[/] windings");
 
-                        // For now, just show that we can create the transformer
-                        // Uncomment the matrix calculation code when the calculator classes are available
-#if false
                         // Create calculator based on settings
                         IRLCMatrixCalculator calculator = settings.Calculator.ToLower() switch
                         {
@@ -266,18 +263,11 @@ namespace LCCalc
                         // Save to file if output path specified
                         if (!string.IsNullOrEmpty(settings.OutputPath))
                         {
-                            // You can implement matrix saving here
+                            DelimitedWriter.Write(settings.OutputPath, capacitanceMatrix, ",");
                             AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{settings.OutputPath}[/]");
                         }
-#endif
-                        AnsiConsole.MarkupLine("[green]✓[/] Capacitance calculation completed!");
 
-                        // Save to file if output path specified
-                        if (!string.IsNullOrEmpty(settings.OutputPath))
-                        {
-                            AnsiConsole.MarkupLine($"[yellow]Note:[/] Matrix saving will be implemented when calculator classes are available");
-                            AnsiConsole.MarkupLine($"Would save to: [cyan]{settings.OutputPath}[/]");
-                        }
+                        AnsiConsole.MarkupLine("[green]✓[/] Capacitance calculation completed!");
 
                         return 0;
                     }
@@ -320,7 +310,7 @@ namespace LCCalc
                     try
                     {
                         // Create test transformer model
-                        var transformer = TestModels.TB904_ThreePhase();
+                        var transformer = TestModels.ModelWinding();
 
                         AnsiConsole.MarkupLine($"Using [cyan]{settings.Calculator}[/] calculator...");
                         
@@ -333,9 +323,6 @@ namespace LCCalc
                         AnsiConsole.MarkupLine($"Calculating for frequencies: [cyan]{string.Join(", ", frequencies)}[/] Hz");
                         AnsiConsole.MarkupLine($"Transformer created with [cyan]{transformer.Windings.Count}[/] windings");
 
-                        // For now, just show the setup
-                        // Uncomment the matrix calculation code when the calculator classes are available
-#if false
                         // Create calculator based on settings
                         IRLCMatrixCalculator calculator = settings.Calculator.ToLower() switch
                         {
@@ -365,7 +352,7 @@ namespace LCCalc
                                 AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{filename}[/]");
                             }
                         }
-#endif
+
                         AnsiConsole.MarkupLine("[green]✓[/] Inductance calculations completed!");
 
                         // Save to file if output path specified

@@ -454,3 +454,7 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 MTLTestUI.Desktop/tempgeo.msh
 MTLTestUI.Desktop/tempgeo.geo
+LCCalc/case.geo
+.gitignore
+LCCalc/Results/
+LCCalc/case.msh

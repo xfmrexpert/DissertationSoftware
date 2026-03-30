@@ -1,4 +1,5 @@
 ﻿using Avalonia.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MathNet.Numerics;
 using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
@@ -16,18 +17,42 @@ public partial class MainViewModel : ViewModelBase
 {
     private MainModel _mainModel;
 
-    public Geometry Geometry { get; set; }
+    [ObservableProperty]
+    private Geometry? _geometry;
 
-    public MeshLib.Mesh Mesh { get; set; }
+    [ObservableProperty]
+    private MeshLib.Mesh? _mesh;
 
-    public TagManager TagManager { get; set; }
+    [ObservableProperty]
+    private TagManager? _tagManager;
+
+    [ObservableProperty]
+    private bool _isBusy;
 
     public MainViewModel()
     {
         _mainModel = new MainModel();
-        Geometry = _mainModel.geometry;
-        TagManager = _mainModel.tfmr.TagManager;
-
+        Initialize();
     }
 
+    private async void Initialize()
+    {
+        try
+        {
+            IsBusy = true;
+            await _mainModel.InitializeAsync();
+
+            Geometry = _mainModel.geometry;
+            TagManager = _mainModel.tfmr.TagManager;
+            Mesh = _mainModel.mesh;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Initialization failed: {ex}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 }

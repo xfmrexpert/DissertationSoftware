@@ -109,7 +109,7 @@ public class UnitTest1
         var tfmr = TwoTurnTfmr();
 
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
-        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, 1.0);
+        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(1.0));
         var turn_lengths = tfmr.GetTurnLengths_m();
         Console.WriteLine("Turn Lengths (m):");
         PrintMatrix(turn_lengths.ToColumnMatrix());
@@ -136,7 +136,7 @@ public class UnitTest1
         });
 
         var analyticMatrixCalculator = new TfmrLib.AnalyticMatrixCalculator();
-        var L_PUL_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, 1.0);
+        var L_PUL_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(1.0));
         Console.WriteLine("Inductance per unit length (uH/m) from analytic calcs:");
         PrintMatrix(L_PUL_analytic * 1e6);
 

@@ -102,8 +102,10 @@ namespace MTLTestUI
             fem.Materials.Add(oil);
             fem.Materials.Add(paper);
             fem.Materials.Add(copper);
-            fem.Regions.Add(new Region() { Name = "InteriorDomain", Tags = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") }, Material = oil });
-            fem.BoundaryConditions.Add(new BoundaryCondition() { Name = "Dirichlet", Tags = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg"), tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "InteriorDomain", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("InteriorDomain") } });
+            fem.Regions.Add(new Region() { Name = "InteriorDomain", EntityGroupName = "InteriorDomain", Material = oil });
+            fem.EntityGroups.Add(new EntityGroup() { Name = "DirichletBoundary", Dimension = 1, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByString("CoreLeg"), tfmr.TagManager.GetTagByString("TopYoke"), tfmr.TagManager.GetTagByString("BottomYoke"), tfmr.TagManager.GetTagByString("RightEdge") } });
+            fem.BoundaryConditions.Add(new DirichletBoundaryCondition() { Name = "Dirichlet", EntityGroupName = "DirichletBoundary", Potential = 0.0 });
             int globalTurn = -1;
             for (int wdgNum = 0; wdgNum < tfmr.Windings.Count; wdgNum++)
             {
@@ -119,17 +121,20 @@ namespace MTLTestUI
                             for (int localStrand = 0; localStrand < seg_geom.NumParallelConductors; localStrand++)
                             {
                                 var locKey = new LocationKey(wdgNum, segNum, localTurn, localStrand);
-                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) }, Material = paper };
-                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Tags = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) }, Material = copper };
+                                fem.EntityGroups.Add(new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.InsulationSurface) } });
+                                fem.EntityGroups.Add(new EntityGroup() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Dimension = 2, AttributeIds = new List<int>() { tfmr.TagManager.GetTagByLocation(locKey, TagType.ConductorSurface) } });
+                                var regionIns = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", EntityGroupName = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Ins", Material = paper };
+                                var regionCond = new Region() { Name = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", EntityGroupName = $"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond", Material = copper };
                                 fem.Regions.Add(regionIns);
                                 fem.Regions.Add(regionCond);
+                                fem.Terminals.Add(new TfmrLib.FEM.Terminal() { EntityGroup = fem.EntityGroups[$"Wdg{wdgNum}Turn{localTurn}Std{localStrand}Cond"], ExcitationType = Quantity.Current });
                                 if (globalTurn == excitedTurn && localStrand == excitedStrand)
                                 {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 1.0 });
+                                    
                                 }
                                 else
                                 {
-                                    fem.Excitations.Add(new Excitation() { Region = regionCond, Value = 0.0 });
+                                    
                                 }
                             }
                         }

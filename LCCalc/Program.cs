@@ -37,42 +37,6 @@ namespace LCCalc
                     .WithDescription("Calculate inductance matrices");
             });
 
-            //var rlcMatrixCalculator = new FEMMatrixCalculator();
-
-            ////_mainModel.wdg.num_discs = 1;
-            ////_mainModel.wdg.turns_per_disc = 2;
-
-            //_mainModel.wdg.eps_paper = 1.5; // Per Cigre TB904, Dry non-impregnated paper is 2.7, Dry non-impregnated pressboard is 3.8
-            //_mainModel.tfmr.r_core = Conversions.in_to_m(12.1);
-            //_mainModel.tfmr.bdry_radius = 3.0;
-            //Console.WriteLine($"Boundary Radius: {_mainModel.tfmr.bdry_radius}");
-
-            ////Geometry = _mainModel.tfmr.GenerateGeometry();
-            ////GmshFile gmshFile = new GmshFile("case.geo");
-            ////gmshFile.CreateFromGeometry(Geometry);
-            ////double meshscale = 1.0;
-            ////Mesh = gmshFile.GenerateMesh(meshscale, 2);
-            ////_mainModel.mesh = Mesh;
-            ////Mesh.WriteToTriangleFiles("", "case");
-
-            ////_mainModel.CalcCapacitanceMatrix();
-
-            //int num_freqs = 10;
-            //double min_freq = 10e3;
-            //double max_freq = 1e6;
-            //var freqs = Generate.LogSpaced(num_freqs, Math.Log10(min_freq), Math.Log10(max_freq));
-            //rlcMatrixCalculator.Calc_Lmatrix(_mainModel.tfmr, 60);
-            ////_mainModel.CalcInductanceMatrix_FEMM(Geometry, 60);
-            //foreach (var freq in (List<double>)[100, 120, 1e3, 10e3, 100e3])
-            //{
-            //    if (freq > 0)
-            //    {
-            //        //_mainModel.CalcInductanceMatrix(freq, 2);
-            //        //_mainModel.CalcInductanceMatrix_FEMM(Geometry, freq);
-            //    }
-            //    //
-            //}
-
             return app.Run(args);
         }
 
@@ -240,7 +204,7 @@ namespace LCCalc
                         // Create test transformer model
                         var transformer = TestModels.ModelWinding();
 
-                        AnsiConsole.MarkupLine($"Using [cyan]{settings.Calculator}[/] calculator...");
+                        AnsiConsole.MarkupLine($"Using [cyan]{Markup.Escape(settings.Calculator)}[/] calculator...");
                         AnsiConsole.MarkupLine($"Transformer created with [cyan]{transformer.Windings.Count}[/] windings");
 
                         // Create calculator based on settings
@@ -264,7 +228,7 @@ namespace LCCalc
                         if (!string.IsNullOrEmpty(settings.OutputPath))
                         {
                             DelimitedWriter.Write(settings.OutputPath, capacitanceMatrix, ",");
-                            AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{settings.OutputPath}[/]");
+                            AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{Markup.Escape(settings.OutputPath)}[/]");
                         }
 
                         AnsiConsole.MarkupLine("[green]✓[/] Capacitance calculation completed!");
@@ -273,7 +237,7 @@ namespace LCCalc
                     }
                     catch (Exception ex)
                     {
-                        AnsiConsole.MarkupLine($"[red]Error calculating capacitance matrix: {ex.Message}[/]");
+                        AnsiConsole.MarkupLine($"[red]Error calculating capacitance matrix: {Markup.Escape(ex.Message)}[/]");
                         return 1;
                     }
                 });
@@ -291,12 +255,17 @@ namespace LCCalc
 
             [Description("Frequencies to calculate (comma-separated)")]
             [CommandOption("--frequencies|-f")]
-            [DefaultValue("60,1000,10000")]
-            public string Frequencies { get; set; } = "60,1000,10000";
+            [DefaultValue("60,1000,10000,100000")]
+            public string Frequencies { get; set; } = "60,1000,10000,100000";
 
             [Description("Output directory for inductance matrices")]
             [CommandOption("--output|-o")]
             public string? OutputPath { get; set; }
+
+            [Description("Show the solver's diagnostic output as well as its progress")]
+            [CommandOption("--verbose|-v")]
+            [DefaultValue(false)]
+            public bool Verbose { get; set; }
         }
 
         public override int Execute(CommandContext context, Settings settings)
@@ -310,10 +279,10 @@ namespace LCCalc
                     try
                     {
                         // Create test transformer model
-                        var transformer = TestModels.ModelWinding();
+                        var transformer = TestModels.ModelWindingSmall(1, 2);
 
-                        AnsiConsole.MarkupLine($"Using [cyan]{settings.Calculator}[/] calculator...");
-                        
+                        AnsiConsole.MarkupLine($"Using [cyan]{Markup.Escape(settings.Calculator)}[/] calculator...");
+
                         // Parse frequencies
                         var frequencies = settings.Frequencies
                             .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -329,14 +298,28 @@ namespace LCCalc
                             "fem" => new FEMMatrixCalculator(),
                             "analytic" or _ => new AnalyticMatrixCalculator()
                         };
-                        
+
+                        // Render solver progress on the spinner's status line; otherwise the
+                        // solver's machine-readable JSON stream interleaves with it.
+                        using var reporter = new SolverProgressReporter(
+                            ctx, "Calculating inductance matrices...", settings.Verbose);
+
+                        if (calculator is FEMMatrixCalculator femCalculator)
+                            femCalculator.ProgressChanged += reporter.Report;
+
                         // Calculate inductance matrix at different frequencies
+                        AnsiConsole.MarkupLine("[blue]>[/] Solving");
+                        reporter.SetHeadline($"Calculating inductance matrices");
+                        var inductanceMatrices = calculator.Calc_Lmatrix(transformer, new TfmrLib.FEM.FrequencySpec.List(frequencies.ToList()));
                         foreach (var freq in frequencies)
                         {
-                            ctx.Status($"Calculating inductance matrix at {freq:F0} Hz...");
-                            
-                            var inductanceMatrix = calculator.Calc_Lmatrix(transformer, freq);
-                            
+                            AnsiConsole.MarkupLine($"[blue]>[/] Solving at [cyan]{freq:F0} Hz[/]");
+                            reporter.SetHeadline($"Calculating inductance matrix at {freq:F0} Hz...");
+
+                            var inductanceMatrix = inductanceMatrices.FirstOrDefault(m => m.Item1 == freq).Item2;
+
+                            reporter.WriteSummary();
+
                             AnsiConsole.MarkupLine($"[green]✓[/] Inductance matrix calculated at [cyan]{freq:F0} Hz[/]");
                             AnsiConsole.MarkupLine($"Matrix size: [cyan]{inductanceMatrix.RowCount}x{inductanceMatrix.ColumnCount}[/]");
                             
@@ -349,7 +332,7 @@ namespace LCCalc
                             {
                                 var filename = Path.Combine(settings.OutputPath, $"inductance_{freq:F0}Hz.csv");
                                 // You can implement matrix saving here
-                                AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{filename}[/]");
+                                AnsiConsole.MarkupLine($"[green]✓[/] Matrix saved to: [cyan]{Markup.Escape(filename)}[/]");
                             }
                         }
 
@@ -359,14 +342,14 @@ namespace LCCalc
                         if (!string.IsNullOrEmpty(settings.OutputPath))
                         {
                             AnsiConsole.MarkupLine($"[yellow]Note:[/] Matrix saving will be implemented when calculator classes are available");
-                            AnsiConsole.MarkupLine($"Would save to directory: [cyan]{settings.OutputPath}[/]");
+                            AnsiConsole.MarkupLine($"Would save to directory: [cyan]{Markup.Escape(settings.OutputPath)}[/]");
                         }
 
                         return 0;
                     }
                     catch (Exception ex)
                     {
-                        AnsiConsole.MarkupLine($"[red]Error calculating inductance matrices: {ex.Message}[/]");
+                        AnsiConsole.MarkupLine($"[red]Error calculating inductance matrices: {Markup.Escape(ex.Message)}[/]");
                         return 1;
                     }
                 });

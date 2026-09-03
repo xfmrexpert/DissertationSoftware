@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.3.11520.95 d18.3
+VisualStudioVersion = 18.3.11520.95
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FreqResponseCalc", "MTLTestApp\FreqResponseCalc.csproj", "{FA6DF03D-93DF-48F7-86DC-7D6AB2C2010A}"
 EndProject
@@ -20,6 +20,11 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LCCalc", "LCCalc\LCCalc.csproj", "{E2F2FC39-A2D2-423C-8A6F-EDA432B6ED84}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DissertationSoftware.Tests", "DissertationSoftware.Tests\DissertationSoftware.Tests.csproj", "{3798A0E1-0901-4F21-94D8-22F6B9864F9F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9E73B865-6DD2-4CD2-880A-B810CCC33F09}"
+	ProjectSection(SolutionItems) = preProject
+		todo.md = todo.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

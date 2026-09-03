@@ -40,7 +40,7 @@ public class UnitTest1
                                     StrandWidth_mm = Conversions.in_to_mm(0.085),
                                     CornerRadius_mm = Conversions.in_to_mm(0.032),
                                     InsulationThickness_mm = Conversions.in_to_mm(0.018),
-                                    rho_c = 0
+                                    //rho_c = 0
                                 },
                                 NumDiscs = 1,
                                 TurnsPerDisc = 1,
@@ -69,8 +69,7 @@ public class UnitTest1
                                     StrandHeight_mm = Conversions.in_to_mm(0.3),
                                     StrandWidth_mm = Conversions.in_to_mm(0.085),
                                     CornerRadius_mm = Conversions.in_to_mm(0.032),
-                                    InsulationThickness_mm = Conversions.in_to_mm(0.018),
-                                    rho_c = 0
+                                    InsulationThickness_mm = Conversions.in_to_mm(0.018)
                                 },
                                 NumDiscs = 1,
                                 TurnsPerDisc = 1,
@@ -109,21 +108,22 @@ public class UnitTest1
         var tfmr = TwoTurnTfmr();
 
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
-        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(1.0));
+        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(60.0));
+        var L_fem = L.First().Item2;
         var turn_lengths = tfmr.GetTurnLengths_m();
         Console.WriteLine("Turn Lengths (m):");
         PrintMatrix(turn_lengths.ToColumnMatrix());
         var one_over_turn_lengths = turn_lengths.Map(x => 1.0 / x);
         Console.WriteLine("Inductance Matrix (uH):");
-        PrintMatrix(L * 1e6);
+        PrintMatrix(L_fem * 1e6);
         Console.WriteLine("Inductance per unit length (uH/m):");
-        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L * 1e6);
-        var L_PUL = Matrix<double>.Build.Dense(L.RowCount, L.ColumnCount);
-        for (int i = 0; i < L.RowCount; i++)
+        PrintMatrix(Matrix<double>.Build.DenseOfDiagonalVector(one_over_turn_lengths) * L_fem * 1e6);
+        var L_PUL = Matrix<double>.Build.Dense(L_fem.RowCount, L_fem.ColumnCount);
+        for (int i = 0; i < L_fem.RowCount; i++)
         {
-            for (int j = 0; j < L.ColumnCount; j++)
+            for (int j = 0; j < L_fem.ColumnCount; j++)
             {
-                L_PUL[i, j] = L[i, j] / turn_lengths[i];
+                L_PUL[i, j] = L_fem[i, j] / turn_lengths[i];
             }
         }
         Console.WriteLine("Inductance per unit length (uH/m) calculated manually:");
@@ -136,27 +136,27 @@ public class UnitTest1
         });
 
         var analyticMatrixCalculator = new TfmrLib.AnalyticMatrixCalculator();
-        var L_PUL_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(1.0));
-        Console.WriteLine("Inductance per unit length (uH/m) from analytic calcs:");
-        PrintMatrix(L_PUL_analytic * 1e6);
+        var L_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(60.0)).First().Item2;
+        Console.WriteLine("Inductance (uH) from analytic calcs:");
+        PrintMatrix(L_analytic * 1e6);
 
-        var L_analytic = Matrix<double>.Build.Dense(L.RowCount, L.ColumnCount);
-        for (int i = 0; i < L.RowCount; i++)
+        var L_PUL_analytic = Matrix<double>.Build.Dense(L.First().Item2.RowCount, L.First().Item2.ColumnCount);
+        for (int i = 0; i < L.First().Item2.RowCount; i++)
         {
-            for (int j = 0; j < L.ColumnCount; j++)
+            for (int j = 0; j < L.First().Item2.ColumnCount; j++)
             {
-                L_analytic[i, j] = L_PUL_analytic[i, j];// * turn_lengths[i];
+                L_PUL_analytic[i, j] = L_analytic[i, j] / turn_lengths[i];
             }
         }
 
-        Console.WriteLine("Inductance Matrix (uH) from analytic calcs:");
-        PrintMatrix(L_analytic * 1e6);
+        Console.WriteLine("Inductance per unit length (uH/m) from analytic calcs:");
+        PrintMatrix(L_PUL_analytic * 1e6);
 
         for (int i = 0; i < expected_L.RowCount; i++)
         {
             for (int j = 0; j < expected_L.ColumnCount; j++)
             {
-                Assert.InRange(L[i, j], L_analytic[i, j] * 0.95, L_analytic[i, j] * 1.05);
+                Assert.InRange(L_fem[i, j], L_analytic[i, j] * 0.95, L_analytic[i, j] * 1.05);
             }
         }
     }

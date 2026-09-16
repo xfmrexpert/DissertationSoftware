@@ -124,12 +124,12 @@ namespace LCCalc
                     .Title("Select [green]calculator type[/]:")
                     .AddChoices("analytic", "fem"));
 
-            var useDefaultFreqs = AnsiConsole.Confirm("Use default frequencies (60, 1000, 10000 Hz)?");
-            string frequencies = "60,1000,10000";
+            var useDefaultFreqs = AnsiConsole.Confirm("Use default frequencies (60, 1000, 10000, 100000, 200000 Hz)?");
+            string frequencies = "60,1000,10000,100000,200000";
 
             if (!useDefaultFreqs)
             {
-                frequencies = AnsiConsole.Ask<string>("Enter frequencies (comma-separated):", "60,1000,10000");
+                frequencies = AnsiConsole.Ask<string>("Enter frequencies (comma-separated):", "60,1000,10000,100000,200000");
             }
 
             var wantOutput = AnsiConsole.Confirm("Do you want to save output to a directory?");
@@ -255,8 +255,8 @@ namespace LCCalc
 
             [Description("Frequencies to calculate (comma-separated)")]
             [CommandOption("--frequencies|-f")]
-            [DefaultValue("60,1000,10000,100000")]
-            public string Frequencies { get; set; } = "60,1000,10000,100000";
+            [DefaultValue("60,1000,10000,100000,200000")]
+            public string Frequencies { get; set; } = "60,1000,10000,100000,200000";
 
             [Description("Output directory for inductance matrices")]
             [CommandOption("--output|-o")]

@@ -145,7 +145,10 @@ namespace MTLTestApp
 
             Console.WriteLine("Howdy! This here is the dumbest middle-life crisis ever.");
 
-            string directoryPath = @"./PULImpedances/Core"; // Specify the directory path
+            string directoryPath = @"./PULImpedances"; // Specify the directory path
+
+            string LR_file = "./PULImpedances/Lmatrix.h5";
+            string C_file = "./PULImpedances/CMatrix.h5";
 
             var measuredData = ReadMeasuredData(@"./Measured/NoCore");
             var impedanceData = ReadImpedanceData(@"./Measured/Core");
@@ -155,7 +158,7 @@ namespace MTLTestApp
             tfmr = TestModels.ModelWinding();
             
             var analyticMatrixCalc = new AnalyticMatrixCalculator();
-            var getDPMatrixCalc = new ExtMatrixCalculator(directoryPath);
+            var femMatrixCalc = new ExtMatrixCalculator(LR_file, C_file);
 
             // tfmr.ins_loss_factor = 0.02;
             // wdg.eps_paper = 2.0;
@@ -163,8 +166,8 @@ namespace MTLTestApp
             // num_turns = wdg.num_turns;
 
             var analyticModel = new MTLModel(tfmr, analyticMatrixCalc, min_freq, max_freq, num_freqs);
-            var getDPModel = new MTLModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
-            var lumpedModel = new LumpedModel(tfmr, getDPMatrixCalc, min_freq, max_freq, num_freqs);
+            var femModel = new MTLModel(tfmr, femMatrixCalc, min_freq, max_freq, num_freqs);
+            var lumpedModel = new LumpedModel(tfmr, femMatrixCalc, min_freq, max_freq, num_freqs);
 
             // wdg.Rs = 0;
             // wdg.Ls = 1.5e-6;
@@ -177,7 +180,7 @@ namespace MTLTestApp
 
             var taskDefinitions = new Dictionary<string, Func<IProgress<int>, Task<(Complex[], List<Complex[]>)>>>
                 {
-                    { "MTL Model w/ GetDP LCs", async progress => getDPModel.CalcResponse(progress) },
+                    { "MTL Model w/ GetDP LCs", async progress => femModel.CalcResponse(progress) },
                     //{ "MTL Model w/ Analytic LCs", async progress => analyticModel.CalcResponse(progress) },
                     //{ "Lumped Model w/ GetDP LCs", async progress => lumpedModel.CalcResponse(progress) }
                 };

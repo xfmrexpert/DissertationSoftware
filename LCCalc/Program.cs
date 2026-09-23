@@ -189,6 +189,11 @@ namespace LCCalc
             [Description("Output file path for the capacitance matrix")]
             [CommandOption("--output|-o")]
             public string? OutputPath { get; set; }
+
+            [Description("Show the solver's diagnostic output as well as its progress")]
+            [CommandOption("--verbose|-v")]
+            [DefaultValue(false)]
+            public bool Verbose { get; set; }
         }
 
         public override int Execute(CommandContext context, Settings settings)
@@ -213,6 +218,14 @@ namespace LCCalc
                             "fem" => new FEMMatrixCalculator(),
                             "analytic" or _ => new AnalyticMatrixCalculator()
                         };
+
+                        // Render solver progress on the spinner's status line; otherwise the
+                        // solver's machine-readable JSON stream interleaves with it.
+                        using var reporter = new SolverProgressReporter(
+                            ctx, "Calculating capacitance matrices...", settings.Verbose);
+
+                        if (calculator is FEMMatrixCalculator femCalculator)
+                            femCalculator.ProgressChanged += reporter.Report;
                         
                         // Calculate capacitance matrix
                         var capacitanceMatrix = calculator.Calc_Cmatrix(transformer);
@@ -279,7 +292,7 @@ namespace LCCalc
                     try
                     {
                         // Create test transformer model
-                        var transformer = TestModels.ModelWindingSmall(1, 2);
+                        var transformer = TestModels.ModelWinding(); //ModelWindingSmall(1, 2);
 
                         AnsiConsole.MarkupLine($"Using [cyan]{Markup.Escape(settings.Calculator)}[/] calculator...");
 

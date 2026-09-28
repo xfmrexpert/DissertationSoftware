@@ -11,7 +11,8 @@ using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra.Double;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Complex;
-using Microsoft.VisualBasic;
+
+// The TUI portion of this is largely vibe-coded, 'cause why bother
 
 namespace MTLTestApp
 {
@@ -148,7 +149,7 @@ namespace MTLTestApp
             string directoryPath = @"./PULImpedances"; // Specify the directory path
 
             string LR_file = "./PULImpedances/Lmatrix.h5";
-            string C_file = "./PULImpedances/CMatrix.h5";
+            string C_file = "./PULImpedances/Cmatrix.h5";
 
             var measuredData = ReadMeasuredData(@"./Measured/NoCore");
             var impedanceData = ReadImpedanceData(@"./Measured/Core");

@@ -263,8 +263,8 @@ namespace LCCalc
         {
             [Description("Calculator type to use (analytic or fem)")]
             [CommandOption("--calculator|-c")]
-            [DefaultValue("analytic")]
-            public string Calculator { get; set; } = "analytic";
+            [DefaultValue("fem")]
+            public string Calculator { get; set; } = "fem";
 
             [Description("Frequencies to calculate (comma-separated)")]
             [CommandOption("--frequencies|-f")]
@@ -337,8 +337,8 @@ namespace LCCalc
                             AnsiConsole.MarkupLine($"Matrix size: [cyan]{inductanceMatrix.RowCount}x{inductanceMatrix.ColumnCount}[/]");
                             
                             // Display matrix summary
-                            var diagonalSum = inductanceMatrix.Diagonal().Sum();
-                            AnsiConsole.MarkupLine($"Sum of diagonal elements: [cyan]{diagonalSum:E3}[/] H");
+                            var sum = inductanceMatrix.ColumnSums().Sum();
+                            AnsiConsole.MarkupLine($"Sum of elements: [cyan]{sum:E3}[/] H");
 
                             // Save to file if output path specified
                             if (!string.IsNullOrEmpty(settings.OutputPath))

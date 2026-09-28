@@ -14,6 +14,18 @@
             "justMyCode": true
         },
         {
+            "name": "Debug LCCalc",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build LCCalc",
+            "program": "${workspaceFolder:DissertationSoftware}/LCCalc/bin/Debug/net10.0/LCCalc.dll",
+            "cwd": "${workspaceFolder:DissertationSoftware}/LCCalc",
+            "args": [],
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true
+        },
+        {
             // Use IntelliSense to find out which attributes exist for C# debugging
             // Use hover for the description of the existing attributes
             // For further information visit https://github.com/dotnet/vscode-csharp/blob/main/debugger-launchjson.md

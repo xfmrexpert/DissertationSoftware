@@ -21,6 +21,7 @@ using System.Linq;
 
 namespace MTLTestUI.Views
 {
+    // Portions of this were modified by AI to improved performance
     public class PlotControl : UserControl
     {
         static PlotControl()

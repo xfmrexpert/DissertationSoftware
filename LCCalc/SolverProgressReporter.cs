@@ -8,7 +8,7 @@ using TfmrLib.FEM;
 namespace LCCalc
 {
     /// <summary>
-    /// Renders the machine-readable progress stream from mfem-electromag into a Spectre
+    /// Renders the machine-readable progress stream from noumena into a Spectre
     /// status display: completed operations are logged as permanent lines, the operation
     /// currently running (plus its live wall-clock elapsed time and the latest solver
     /// message) drives the spinner's status line, and warnings/errors are called out in
@@ -56,20 +56,20 @@ namespace LCCalc
             RefreshStatus();
         }
 
-        public void Report(MFEMProgressEvent progress)
+        public void Report(NoumenaProgressEvent progress)
         {
             // Progress arrives on the solver's stdout reader thread while the ticker fires
             // on a timer thread; serialise both so console writes never interleave.
             lock (_sync)
             {
-                if (progress.EventType == MFEMProgressEventType.Operation)
+                if (progress.EventType == NoumenaProgressEventType.Operation)
                     ReportOperation(progress);
                 else
                     ReportMessage(progress);
             }
         }
 
-        private void ReportOperation(MFEMProgressEvent progress)
+        private void ReportOperation(NoumenaProgressEvent progress)
         {
             var name = progress.Name ?? "operation";
 
@@ -109,7 +109,7 @@ namespace LCCalc
             }
         }
 
-        private void ReportMessage(MFEMProgressEvent progress)
+        private void ReportMessage(NoumenaProgressEvent progress)
         {
             var message = progress.Message;
             if (string.IsNullOrWhiteSpace(message))

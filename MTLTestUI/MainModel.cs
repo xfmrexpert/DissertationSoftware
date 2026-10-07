@@ -19,6 +19,7 @@ using GeometryLib;
 
 namespace MTLTestUI
 {
+    // The time measurement stuff was vibe-coded
     public class MainModel
     {
         public Transformer tfmr;

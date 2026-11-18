@@ -14,8 +14,8 @@ using MathNet.Numerics.Data.Text;
 using MathNet.Numerics.LinearAlgebra;
 using MeshLib;
 using TfmrLib;
-using TfmrLib.FEM;
 using TfmrLib.TransientModels;
+using FEM = FEMLib;
 using Vector_d = MathNet.Numerics.LinearAlgebra.Vector<double>;
 
 namespace MTLTestUI

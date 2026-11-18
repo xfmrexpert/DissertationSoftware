@@ -1,4 +1,8 @@
-﻿namespace DissertationSoftware.Tests;
+﻿using MathNet.Numerics.LinearAlgebra;
+using TfmrLib;
+using FEM = FEMLib;
+
+namespace DissertationSoftware.Tests;
 
 public class UnitTest1
 {
@@ -103,7 +107,7 @@ public class UnitTest1
         var tfmr = TwoTurnTfmr();
 
         var femMatrixCalculator = new TfmrLib.FEMMatrixCalculator();
-        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(60.0));
+        var L = femMatrixCalculator.Calc_Lmatrix(tfmr, new FEM.FrequencySpec.Scalar(60.0));
         var L_fem = L.First().Item2;
         var turn_lengths = tfmr.GetTurnLengths_m();
         Console.WriteLine("Turn Lengths (m):");
@@ -131,7 +135,7 @@ public class UnitTest1
         });
 
         var analyticMatrixCalculator = new TfmrLib.AnalyticMatrixCalculator();
-        var L_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, new TfmrLib.FEM.FrequencySpec.Scalar(60.0)).First().Item2;
+        var L_analytic = analyticMatrixCalculator.Calc_Lmatrix(tfmr, new FEM.FrequencySpec.Scalar(60.0)).First().Item2;
         Console.WriteLine("Inductance (uH) from analytic calcs:");
         PrintMatrix(L_analytic * 1e6);
 
